@@ -1,94 +1,211 @@
-# app.py
 import streamlit as st
-import pandas as pd
 import numpy as np
+import pandas as pd
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 
-st.set_page_config(page_title="Revenue Forecast Dashboard", layout="wide")
+# ------------------------
+# Brand Colors
+# ------------------------
+ACCENT_RED = "#D71920"
+TEXT_DARK = "#1A1A1A"
+LIGHT_BG = "#FFFFFF"
+SECONDARY_GRAY = "#4A4A4A"
 
-st.title("Bensonwood Revenue Forecast Dashboard")
+# ------------------------
+# App Layout
+# ------------------------
+st.set_page_config(layout="wide", page_title="Bensonwood Revenue & Profit Forecaster")
 
-# --- SLIDERS WITH HOVER-HELP ---
-custom_pct = st.slider(
-    "Custom % of total business",
-    min_value=0, max_value=100, value=60,
-    help="Adjusts the proportion of custom homes versus product homes. Higher % = higher-margin custom work, lower % = more product volume."
-)
+st.title("Bensonwood Revenue & Profit Forecaster")
 
-product_price = st.slider(
-    "Average Product Home Price",
-    min_value=100000, max_value=2000000, step=10000, value=500000,
-    help="Sets the average sale price for product homes. Affects total revenue and required volume to reach profit targets."
-)
+# ------------------------
+# Scenario Tabs
+# ------------------------
+saved = st.session_state.get("saved_scenarios", {})
 
-design_tier_price = st.slider(
-    "Design Tier Service Price",
-    min_value=5000, max_value=50000, step=1000, value=15000,
-    help="Adjusts the average price for design services (tiers). Affects profit margins and revenue calculations."
-)
+tab_names = list(saved.keys()) + ["New Scenario"]
+tabs = st.tabs(tab_names)
 
-time_horizon = st.slider(
-    "Time Horizon (years)",
-    min_value=1, max_value=10, value=5,
-    help="Sets the length of the forecast in years. Longer horizons compound effects of margin shifts and volume changes."
-)
+for idx, tab in enumerate(tabs):
+    with tab:
+        if tab == "New Scenario":
+            # ------------------------
+            # Input Sliders & Help
+            # ------------------------
+            left_col, center_col, right_col = st.columns([1, 2, 1])
 
-# --- ASSUMED MARGINS ---
-custom_margin = 0.35
-product_margin = 0.15
+            with left_col:
+                st.header("Inputs")
 
-# --- TIME SERIES ---
-years = np.arange(1, time_horizon + 1)
+                mix_custom = st.slider(
+                    "Custom % of Business",
+                    0, 100, 60,
+                    help="Percent of revenue from custom homes vs product homes."
+                )
 
-# --- CALCULATIONS ---
-custom_revenue = custom_pct/100 * (product_price + design_tier_price) * years
-product_revenue = (100-custom_pct)/100 * product_price * years
+                product_price = st.number_input(
+                    "Product Home Price ($)",
+                    min_value=100000, max_value=2000000,
+                    step=25000, value=650000,
+                    help="Average sale price for product homes."
+                )
 
-total_revenue = custom_revenue + product_revenue
+                custom_design_price = st.number_input(
+                    "Custom Design Tier Price ($)",
+                    min_value=5000, max_value=100000,
+                    step=1000, value=45000,
+                    help="Average fee for custom home design services."
+                )
 
-# Compute required volume for same profit if margins shift
-base_profit = custom_revenue[-1]*custom_margin + product_revenue[-1]*product_margin
-product_only_profit = total_revenue * product_margin
-required_volume_multiplier = np.maximum(1, base_profit / product_only_profit)
+                product_design_price = st.number_input(
+                    "Product Design Tier Price ($)",
+                    min_value=5000, max_value=50000,
+                    step=1000, value=18000,
+                    help="Average fee for product home design services."
+                )
 
-profit_margin = (custom_revenue*custom_margin + product_revenue*product_margin) / total_revenue
+                years = st.slider(
+                    "Forecast Time Horizon (Years)",
+                    min_value=1, max_value=10, value=5,
+                    help="Length of the projection period."
+                )
 
-split_ratio = custom_pct / 100 * np.ones_like(years)
+                custom_margin = st.slider(
+                    "Custom Home Margin %",
+                    0, 100, 25,
+                    help="Profit margin on custom homes."
+                )
 
-# --- PLOTLY SUBPLOTS ---
-fig = make_subplots(
-    rows=2, cols=2,
-    subplot_titles=("Total Revenue", "Required Volume Multiplier", "Profit Margin", "Custom vs Product Split")
-)
+                product_margin = st.slider(
+                    "Product Home Margin %",
+                    0, 100, 20,
+                    help="Profit margin on product homes."
+                )
 
-# Total Revenue
-fig.add_trace(go.Scatter(x=years, y=total_revenue, mode='lines+markers', name="Revenue"), row=1, col=1)
+                max_custom_units = st.number_input(
+                    "Max Custom Units/Year",
+                    min_value=0, max_value=200,
+                    value=20,
+                    help="Manufacturing or build capacity for custom homes."
+                )
 
-# Required Volume Multiplier
-fig.add_trace(go.Scatter(x=years, y=required_volume_multiplier, mode='lines+markers', name="Volume Factor"), row=1, col=2)
+                max_product_units = st.number_input(
+                    "Max Product Units/Year",
+                    min_value=0, max_value=200,
+                    value=15,
+                    help="Manufacturing capacity for product homes."
+                )
 
-# Profit Margin
-fig.add_trace(go.Scatter(x=years, y=profit_margin, mode='lines+markers', name="Profit Margin"), row=2, col=1)
+                save_name = st.text_input("Save Scenario As", "")
 
-# Custom vs Product Split
-fig.add_trace(go.Scatter(x=years, y=split_ratio*100, mode='lines+markers', name="Custom %"), row=2, col=2)
+                if st.button("Save Scenario"):
+                    saved[save_name] = {
+                        "mix_custom": mix_custom,
+                        "product_price": product_price,
+                        "custom_design_price": custom_design_price,
+                        "product_design_price": product_design_price,
+                        "years": years,
+                        "custom_margin": custom_margin,
+                        "product_margin": product_margin,
+                        "max_custom_units": max_custom_units,
+                        "max_product_units": max_product_units,
+                    }
+                    st.session_state["saved_scenarios"] = saved
+                    st.experimental_rerun()
 
-fig.update_layout(
-    height=700, width=1000,
-    title_text="Revenue Forecast Dashboard",
-    showlegend=True,
-    hovermode="x unified"
-)
+            # ------------------------
+            # Calculations
+            # ------------------------
+            with center_col:
+                time = np.arange(1, years + 1)
 
-# Show the figure
-st.plotly_chart(fig, use_container_width=True)
+                # Mix
+                mix = mix_custom/100
+                custom_units = np.round(mix * (max_custom_units+max_product_units) * np.ones_like(time))
+                product_units = np.round((1-mix) * (max_custom_units+max_product_units) * np.ones_like(time))
 
-# --- INSIGHTS SECTION ---
-st.markdown("""
-**Insights:**
-- **Total Revenue:** Combines custom and product sales, including design services.
-- **Required Volume Multiplier:** Shows how much product volume must increase to match profits if custom share decreases.
-- **Profit Margin:** Illustrates overall profitability based on mix.
-- **Custom vs Product Split:** Current slider mix of custom vs product homes.
-""")
+                rev_custom = custom_units * (product_price + custom_design_price)
+                rev_product = product_units * (product_price + product_design_price)
+
+                total_revenue = rev_custom + rev_product
+
+                profit_custom = rev_custom * (custom_margin/100)
+                profit_product = rev_product * (product_margin/100)
+                total_profit = profit_custom + profit_product
+
+                baseline_profit = total_profit[0]
+
+                shortfall = np.maximum(baseline_profit - total_profit, 0)
+                profit_per_prod = (product_price+product_design_price)*(product_margin/100)
+                volume_needed_factor = np.where(
+                    profit_per_prod > 0,
+                    1 + shortfall/profit_per_prod,
+                    np.ones_like(time)
+                )
+
+                # ------------------------
+                # Subplot Dashboard
+                # ------------------------
+                fig = make_subplots(
+                    rows=2, cols=2,
+                    subplot_titles=[
+                        "Total Revenue",
+                        "Required Volume Increase",
+                        "Profit Margin",
+                        "Custom vs Product Mix"
+                    ]
+                )
+
+                fig.add_trace(go.Scatter(
+                    x=time, y=total_revenue,
+                    name="Total Revenue",
+                    line=dict(color=ACCENT_RED)
+                ), row=1, col=1)
+
+                fig.add_trace(go.Bar(
+                    x=time, y=(volume_needed_factor-1)*100,
+                    name="Extra % Volume",
+                    marker_color=ACCENT_RED, opacity=0.6
+                ), row=1, col=2)
+
+                fig.add_trace(go.Scatter(
+                    x=time, y=(total_profit/total_revenue),
+                    name="Profit Margin %",
+                    line=dict(color=TEXT_DARK)
+                ), row=2, col=1)
+
+                fig.add_trace(go.Scatter(
+                    x=time, y=mix*100*np.ones_like(time),
+                    name="Custom %",
+                    line=dict(color=SECONDARY_GRAY)
+                ), row=2, col=2)
+
+                fig.update_layout(
+                    height=700, width=920,
+                    title_text="Revenue & Volume Forecast",
+                    plot_bgcolor=LIGHT_BG
+                )
+
+                st.plotly_chart(fig, use_container_width=True)
+
+            # ------------------------
+            # Executive Insights
+            # ------------------------
+            with right_col:
+                st.header("Executive Insights")
+                st.markdown(f"**Scenario:** Custom {mix_custom}%, Product {100-mix_custom}%")
+                st.markdown(f"**Year 1 Profit:** ${total_profit[0]:,.0f}")
+                st.markdown(f"**Year {years} Profit:** ${total_profit[-1]:,.0f}")
+                if shortfall[-1] > 0:
+                    st.error(
+                        f"By Year {years}, profit declines by ${shortfall[-1]:,.0f} "
+                        "– requires significant volume increase to break even."
+                    )
+                else:
+                    st.success("Profit maintained or improved over horizon.")
+
+        else:
+            st.write(f"### Saved Scenario: {tab}")
+            sc = saved[tab]
+            st.json(sc)
