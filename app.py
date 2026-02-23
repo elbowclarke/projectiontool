@@ -3,97 +3,123 @@ import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
 
-st.set_page_config(page_title='Bensonwood Revenue & Mix Forecaster', layout='wide')
+st.set_page_config(page_title="Bensonwood Revenue Forecaster", layout="wide")
 
-# ---- Logo ----
-st.markdown(
-    f"""
-    <div style='text-align:center; margin-bottom:20px;'>
-      <img src='https://bensonwood.com/wp-content/uploads/2021/10/bensonwood-logo-wht.svg' width='280px'>
-    </div>
-    """,
-    unsafe_allow_html=True
-)
+# --- Logo ---
+st.markdown("""
+<div style="text-align:center; margin-bottom: 20px;">
+<img src="https://bensonwood.com/wp-content/uploads/2021/10/bensonwood-logo-wht.svg" width="250">
+</div>
+""", unsafe_allow_html=True)
 
-st.title('Revenue & Product/Custom Mix Forecaster')
+st.title("Revenue & Product Mix Forecaster")
+st.markdown("Visualize 10-year growth and volume required when shifting from custom-heavy work to more product-focused work.")
 
-# ---- Sidebar Inputs ----
-st.sidebar.header('Forecast Settings')
-years = st.sidebar.slider('Forecast Horizon (Years)', 5, 15, 10)
-start_mix_custom = st.sidebar.slider('Starting Custom %', 40, 80, 60)
-target_mix_custom = st.sidebar.slider('Target Custom %', 40, 80, 50)
-custom_growth = st.sidebar.number_input('Annual Volume Growth %', min_value=0.0, max_value=50.0, value=5.0, step=0.5)
-product_price = st.sidebar.number_input('Product Unit Price', value=150000)
-product_cost = st.sidebar.number_input('Product Unit Cost', value=120000)
-custom_price = st.sidebar.number_input('Custom Unit Price', value=250000)
-custom_cost = st.sidebar.number_input('Custom Unit Cost', value=180000)
+# --- Sidebar sliders ---
+st.sidebar.header("Scenario Inputs")
 
-# ---- Custom Mix Curve Input (C) ----
-st.sidebar.markdown('**Custom Mix per Year (%)**')
-custom_mix_curve = []
-for i in range(years):
-    val = st.sidebar.slider(f'Year {i+1} Custom %', 40, 80, int(start_mix_custom + (target_mix_custom-start_mix_custom)*(i/(years-1))))
-    custom_mix_curve.append(val)
+years = 10
+base_custom_mix = st.sidebar.slider("Baseline Custom Work %", 50, 80, 60, 1)
+target_custom_mix = st.sidebar.slider("Target Custom Work %", 40, 70, 50, 1)
+baseline_revenue = st.sidebar.number_input("Current Annual Revenue ($M)", 1.0, 100.0, 10.0, 0.1)
+baseline_profit_margin = st.sidebar.slider("Baseline Profit Margin %", 5, 40, 20, 1)
+product_margin = st.sidebar.slider("Product Work Margin %", 5, 30, 15, 1)
+annual_growth_rate = st.sidebar.slider("Annual Revenue Growth Rate %", 0, 25, 8, 1)
 
-# ---- Baseline Volume Assumptions ----
-base_custom_units = st.sidebar.number_input('Starting Custom Units', value=10)
-base_product_units = st.sidebar.number_input('Starting Product Units', value=8)
+# --- Compute projections ---
+def project_revenue_mix(years, revenue, growth, base_mix, target_mix, base_margin, product_margin):
+    df = pd.DataFrame(index=range(1, years+1))
+    df['Revenue'] = revenue * ((1 + growth/100) ** (df.index - 1))
+    
+    # Linear shift in mix from base_mix -> target_mix
+    df['CustomMix'] = np.linspace(base_mix, target_mix, years)
+    df['ProductMix'] = 100 - df['CustomMix']
+    
+    # Compute blended margin
+    df['ProfitMargin'] = (df['CustomMix']/100 * base_margin) + (df['ProductMix']/100 * product_margin)
+    df['Profit'] = df['Revenue'] * df['ProfitMargin']/100
+    
+    # Compute product volume required to maintain baseline profit
+    baseline_profit = revenue * base_margin / 100
+    df['RequiredRevenue_Product'] = baseline_profit / (product_margin/100)
+    df['RequiredVolumeFactor'] = df['RequiredRevenue_Product'] / df['Revenue']
+    
+    return df
 
-# ---- Prepare DataFrame ----
-df = pd.DataFrame({'Year': range(1, years+1)})
+baseline = project_revenue_mix(years, baseline_revenue, annual_growth_rate,
+                               base_custom_mix, base_custom_mix,
+                               baseline_profit_margin, product_margin)
 
-# Annual growth factor
-growth_factor = 1 + (custom_growth/100)
+scenario = project_revenue_mix(years, baseline_revenue, annual_growth_rate,
+                               base_custom_mix, target_custom_mix,
+                               baseline_profit_margin, product_margin)
 
-# Compute baseline volumes (constant 60/40 mix growth)
-df['BaselineCustomUnits'] = [base_custom_units * (growth_factor**i) for i in range(years)]
-df['BaselineProductUnits'] = [base_product_units * (growth_factor**i) for i in range(years)]
-df['BaselineProfit'] = df['BaselineCustomUnits']*(custom_price-custom_cost) + df['BaselineProductUnits']*(product_price-product_cost)
+# --- Tabs for saved scenarios ---
+if 'saved_scenarios' not in st.session_state:
+    st.session_state.saved_scenarios = {}
 
-# Scenario: apply custom curve
-scenario_custom_units = []
-scenario_product_units = []
-for i, year_custom_pct in enumerate(custom_mix_curve):
-    total_units = df['BaselineCustomUnits'][i] + df['BaselineProductUnits'][i]
-    scenario_custom_units.append(total_units * (year_custom_pct/100))
-    scenario_product_units.append(total_units * ((100-year_custom_pct)/100))
+col1, col2, col3 = st.columns([1,2,1])
 
-df['ScenarioCustomUnits'] = scenario_custom_units
-df['ScenarioProductUnits'] = scenario_product_units
-df['ScenarioProfit'] = df['ScenarioCustomUnits']*(custom_price-custom_cost) + df['ScenarioProductUnits']*(product_price-product_cost)
-
-# Compute shortfall and required product volume to match baseline profit
-df['ProfitShortfall'] = np.maximum(0, df['BaselineProfit'] - df['ScenarioProfit'])
-df['RequiredProductUnits'] = df['ScenarioProductUnits'] + df['ProfitShortfall']/(product_price-product_cost)
-df['VolumeFactor'] = df['RequiredProductUnits']/df['ScenarioProductUnits']
-
-# ---- Plots ----
-fig_profit = go.Figure()
-fig_profit.add_trace(go.Scatter(x=df['Year'], y=df['BaselineProfit'], mode='lines+markers', name='Baseline Profit', line=dict(color='#D71920', width=3)))
-fig_profit.add_trace(go.Scatter(x=df['Year'], y=df['ScenarioProfit'], mode='lines+markers', name='Scenario Profit', line=dict(color='#1A1A1A', width=3)))
-fig_profit.update_layout(title='Profit Comparison', xaxis_title='Year', yaxis_title='Profit ($)', plot_bgcolor='#FFFFFF')
-
-fig_units = go.Figure()
-fig_units.add_trace(go.Bar(x=df['Year'], y=df['RequiredProductUnits'], name='Required Product Units', marker_color='#D71920'))
-fig_units.add_trace(go.Bar(x=df['Year'], y=df['ScenarioProductUnits'], name='Planned Product Units', marker_color='#4A4A4A'))
-fig_units.update_layout(title='Product Units: Required vs Planned', xaxis_title='Year', yaxis_title='Units', barmode='group', plot_bgcolor='#FFFFFF')
-
-fig_factor = go.Figure()
-fig_factor.add_trace(go.Scatter(x=df['Year'], y=df['VolumeFactor'], mode='lines+markers', name='Required Volume Factor', line=dict(color='#D71920', width=3)))
-fig_factor.update_layout(title='Required Product Volume Factor', xaxis_title='Year', yaxis_title='Factor of Planned Volume', plot_bgcolor='#FFFFFF')
-
-# ---- Layout ----
-st.subheader('Scenario Visualizations')
-col1, col2 = st.columns([2,1])
-
+# --- Sliders are in col1 ---
 with col1:
-    st.plotly_chart(fig_profit, use_container_width=True)
-    st.plotly_chart(fig_units, use_container_width=True)
-    st.plotly_chart(fig_factor, use_container_width=True)
+    if st.button("Save Current Scenario"):
+        scenario_name = st.text_input("Scenario Name", value=f"Scenario {len(st.session_state.saved_scenarios)+1}")
+        if scenario_name:
+            st.session_state.saved_scenarios[scenario_name] = scenario
+            st.success(f"Saved scenario: {scenario_name}")
 
+# --- Charts in col2 ---
 with col2:
-    st.subheader('Executive Insights')
-    insights = []
-    for i, row in df.iterrows():
-        insights.append(f"Year {row['Year']}: Required product units = {row['RequiredProductUnits']:.1f} ({row['VolumeFactor']:.2f}× planned). Scenario profit = ${row['ScenarioProfit']:,.0f}, baseline profit = ${row['BaselineProfit']:,.0f}.")
-    st.text_area('Insights', '\n'.join(insights), height=500)
+    fig = go.Figure()
+
+    # Revenue & Profit (primary y-axis)
+    fig.add_trace(go.Scatter(x=baseline.index, y=baseline['Revenue'], 
+                             mode='lines+markers', name='Baseline Revenue',
+                             hovertemplate='Year %{x}<br>Revenue: $%{y:.1f}M'))
+    fig.add_trace(go.Scatter(x=scenario.index, y=scenario['Revenue'], 
+                             mode='lines+markers', name='Scenario Revenue',
+                             hovertemplate='Year %{x}<br>Revenue: $%{y:.1f}M'))
+    fig.add_trace(go.Scatter(x=baseline.index, y=baseline['Profit'], 
+                             mode='lines+markers', name='Baseline Profit',
+                             line=dict(dash='dot'), hovertemplate='Year %{x}<br>Profit: $%{y:.1f}M'))
+    fig.add_trace(go.Scatter(x=scenario.index, y=scenario['Profit'], 
+                             mode='lines+markers', name='Scenario Profit',
+                             line=dict(dash='dot'), hovertemplate='Year %{x}<br>Profit: $%{y:.1f}M'))
+
+    # Required product revenue (secondary y-axis)
+    fig.add_trace(go.Scatter(x=scenario.index, y=scenario['RequiredRevenue_Product'], 
+                             mode='lines', name='Required Product Revenue',
+                             line=dict(color='firebrick', dash='dash'),
+                             yaxis="y2",
+                             hovertemplate='Year %{x}<br>Required Product Revenue: $%{y:.1f}M'))
+
+    fig.update_layout(
+        title="Revenue, Profit, and Required Product Volume Over 10 Years",
+        xaxis_title="Year",
+        yaxis_title="Revenue / Profit ($M)",
+        yaxis2=dict(title="Required Product Revenue ($M)", overlaying='y', side='right'),
+        legend=dict(yanchor="top", y=0.99, xanchor="left", x=0.01),
+        template="plotly_white",
+        height=600
+    )
+
+    st.plotly_chart(fig, use_container_width=True)
+
+# --- Executive Insights in col3 ---
+with col3:
+    st.header("Executive Insights")
+    st.markdown("""
+    **Scenario Analysis:**  
+    - Shifting from a {:.0f}/{:.0f} custom/product mix to {:.0f}/{:.0f} mix over 10 years.
+    - Product work has lower margins ({:.0f}%) than custom work ({:.0f}%).
+    - Profit growth requires increasing product volume by up to {:.1f}x in Year 10 to maintain baseline profit.
+    """.format(base_custom_mix, 100-base_custom_mix,
+               target_custom_mix, 100-target_custom_mix,
+               product_margin, baseline_profit_margin,
+               scenario['RequiredVolumeFactor'].iloc[-1]))
+    
+    if st.session_state.saved_scenarios:
+        st.subheader("Saved Scenarios")
+        for name, df_s in st.session_state.saved_scenarios.items():
+            st.markdown(f"**{name}**")
+            st.dataframe(df_s[['Revenue','Profit','RequiredRevenue_Product']])
