@@ -1,134 +1,94 @@
+# app.py
 import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 
-st.set_page_config(layout="wide", page_title="Bensonwood Revenue & Profit Dashboard with Insights")
+st.set_page_config(page_title="Revenue Forecast Dashboard", layout="wide")
 
-st.title("Bensonwood Revenue & Profit Dashboard with Scenario Insights")
+st.title("Bensonwood Revenue Forecast Dashboard")
 
-# -----------------------------
-# Sidebar: Scenario Selection
-# -----------------------------
-st.sidebar.header("Scenario Settings")
-num_scenarios = st.sidebar.number_input("Number of Scenarios to Compare", 1, 5, 2)
+# --- SLIDERS WITH HOVER-HELP ---
+custom_pct = st.slider(
+    "Custom % of total business",
+    min_value=0, max_value=100, value=60,
+    help="Adjusts the proportion of custom homes versus product homes. Higher % = higher-margin custom work, lower % = more product volume."
+)
 
-scenarios = []
-for s in range(num_scenarios):
-    st.sidebar.markdown(f"### Scenario {s+1}")
-    scenario = {}
-    scenario['name'] = st.sidebar.text_input(f"Scenario {s+1} Name", f"Scenario {s+1}", key=f"name{s}")
-    scenario['starting_mix_custom'] = st.sidebar.slider(f"Starting Custom % (Scenario {s+1})", 50, 100, 60, 5, key=f"smc{s}")
-    scenario['target_mix_custom'] = st.sidebar.slider(f"Target Custom % (Scenario {s+1})", 0, 100, 50, 5, key=f"tmc{s}")
-    scenario['transition_years'] = st.sidebar.slider(f"Transition Years (Scenario {s+1})", 1, 10, 5, key=f"ty{s}")
-    scenario['custom_units'] = st.sidebar.number_input(f"Annual Custom Units (Scenario {s+1})", 1, 100, 20, key=f"cu{s}")
-    scenario['product_units'] = st.sidebar.number_input(f"Annual Product Units (Scenario {s+1})", 1, 100, 15, key=f"pu{s}")
-    scenario['custom_price'] = st.sidebar.number_input(f"Custom Price $M (Scenario {s+1})", 0.1, 10.0, 1.8, 0.05, key=f"cp{s}")
-    scenario['product_price'] = st.sidebar.number_input(f"Product Price $M (Scenario {s+1})", 0.1, 5.0, 0.65, 0.01, key=f"pp{s}")
-    scenario['custom_margin'] = st.sidebar.slider(f"Custom Margin % (Scenario {s+1})", 0, 100, 25, key=f"cm{s}")
-    scenario['product_margin'] = st.sidebar.slider(f"Product Margin % (Scenario {s+1})", 0, 100, 20, key=f"pm{s}")
-    scenario['design_margin'] = st.sidebar.slider(f"Design Margin % (Scenario {s+1})", 0, 100, 50, key=f"dm{s}")
-    scenario['premium_adoption'] = st.sidebar.slider(f"Premium Adoption % (Scenario {s+1})", 0, 100, 40, key=f"pa{s}")
-    scenario['custom_design_price'] = st.sidebar.number_input(f"Custom Design $K (Scenario {s+1})", 0, 200, 45, 1, key=f"cdp{s}")*1000
-    scenario['product_design_price'] = st.sidebar.number_input(f"Product Design $K (Scenario {s+1})", 0, 100, 18, 1, key=f"pdp{s}")*1000
-    scenario['max_custom_capacity'] = st.sidebar.number_input(f"Max Custom Units (Scenario {s+1})", 1, 100, 25, key=f"mcc{s}")
-    scenario['max_product_capacity'] = st.sidebar.number_input(f"Max Product Units (Scenario {s+1})", 1, 100, 25, key=f"mpc{s}")
-    scenarios.append(scenario)
+product_price = st.slider(
+    "Average Product Home Price",
+    min_value=100000, max_value=2000000, step=10000, value=500000,
+    help="Sets the average sale price for product homes. Affects total revenue and required volume to reach profit targets."
+)
 
-# -----------------------------
-# Function: Run Scenario Calculations
-# -----------------------------
-def run_scenario(s):
-    years = np.arange(1, s['transition_years'] + 1)
-    custom_mix = np.linspace(s['starting_mix_custom']/100, s['target_mix_custom']/100, s['transition_years'])
-    product_mix = 1 - custom_mix
+design_tier_price = st.slider(
+    "Design Tier Service Price",
+    min_value=5000, max_value=50000, step=1000, value=15000,
+    help="Adjusts the average price for design services (tiers). Affects profit margins and revenue calculations."
+)
 
-    total_units = np.minimum(s['custom_units'] + s['product_units'], s['max_custom_capacity'] + s['max_product_capacity'])
-    custom_units_final = np.round(custom_mix * total_units)
-    product_units_final = np.round(product_mix * total_units)
+time_horizon = st.slider(
+    "Time Horizon (years)",
+    min_value=1, max_value=10, value=5,
+    help="Sets the length of the forecast in years. Longer horizons compound effects of margin shifts and volume changes."
+)
 
-    # Revenue
-    custom_revenue = custom_units_final * s['custom_price'] * 1e6
-    product_revenue = product_units_final * s['product_price'] * 1e6
-    design_revenue = (custom_units_final + product_units_final) * s['premium_adoption']/100 * \
-                     (s['custom_design_price'] * custom_units_final/(custom_units_final+product_units_final) + \
-                      s['product_design_price'] * product_units_final/(custom_units_final+product_units_final))
-    total_revenue = custom_revenue + product_revenue + design_revenue
+# --- ASSUMED MARGINS ---
+custom_margin = 0.35
+product_margin = 0.15
 
-    # Profit
-    custom_profit = custom_revenue * s['custom_margin']/100
-    product_profit = product_revenue * s['product_margin']/100
-    design_profit = design_revenue * s['design_margin']/100
-    total_profit = custom_profit + product_profit + design_profit
+# --- TIME SERIES ---
+years = np.arange(1, time_horizon + 1)
 
-    # Baseline profit
-    baseline_custom_units = np.minimum(s['custom_units'], s['max_custom_capacity'])
-    baseline_product_units = np.minimum(s['product_units'], s['max_product_capacity'])
-    baseline_custom_profit = baseline_custom_units * s['custom_price']*1e6 * s['custom_margin']/100
-    baseline_product_profit = baseline_product_units * s['product_price']*1e6 * s['product_margin']/100
-    baseline_design_profit = (baseline_custom_units + baseline_product_units) * s['premium_adoption']/100 * \
-                             (s['custom_design_price']*baseline_custom_units/(baseline_custom_units+baseline_product_units) + \
-                              s['product_design_price']*baseline_product_units/(baseline_custom_units+baseline_product_units)) * s['design_margin']/100
-    baseline_profit = baseline_custom_profit + baseline_product_profit + baseline_design_profit
+# --- CALCULATIONS ---
+custom_revenue = custom_pct/100 * (product_price + design_tier_price) * years
+product_revenue = (100-custom_pct)/100 * product_price * years
 
-    # Required additional product units
-    profit_shortfall = np.maximum(baseline_profit - total_profit, 0)
-    profit_per_product_unit = s['product_price']*1e6*s['product_margin']/100 + s['product_design_price']*s['design_margin']/100*s['premium_adoption']/100
-    required_additional_product_units = profit_shortfall / profit_per_product_unit
+total_revenue = custom_revenue + product_revenue
 
-    # Capacity warnings
-    capacity_warnings = []
-    for i in range(len(years)):
-        warnings = []
-        if custom_units_final[i] > s['max_custom_capacity']:
-            warnings.append(f"Custom units exceed capacity ({custom_units_final[i]} > {s['max_custom_capacity']})")
-        if product_units_final[i] + required_additional_product_units[i] > s['max_product_capacity']:
-            warnings.append(f"Required product units exceed capacity ({product_units_final[i]+required_additional_product_units[i]:.1f} > {s['max_product_capacity']})")
-        if profit_shortfall[i] > 0:
-            warnings.append(f"Profit shortfall: ${profit_shortfall[i]/1e6:.1f}M")
-        capacity_warnings.append(warnings)
-    return {
-        'years': years,
-        'custom_units_final': custom_units_final,
-        'product_units_final': product_units_final,
-        'total_profit': total_profit,
-        'baseline_profit': baseline_profit,
-        'required_additional_product_units': required_additional_product_units,
-        'warnings': capacity_warnings
-    }
+# Compute required volume for same profit if margins shift
+base_profit = custom_revenue[-1]*custom_margin + product_revenue[-1]*product_margin
+product_only_profit = total_revenue * product_margin
+required_volume_multiplier = np.maximum(1, base_profit / product_only_profit)
 
-# -----------------------------
-# Run Scenarios & Display Insights
-# -----------------------------
-for i, s in enumerate(scenarios):
-    st.subheader(f"Scenario: {s['name']}")
-    res = run_scenario(s)
+profit_margin = (custom_revenue*custom_margin + product_revenue*product_margin) / total_revenue
 
-    # Revenue & Profit Plot
-    fig = go.Figure()
-    fig.add_trace(go.Scatter(x=res['years'], y=res['total_profit']/1e6, mode='lines+markers', name='Total Profit ($M)'))
-    fig.add_hline(y=res['baseline_profit']/1e6, line_dash="dash", line_color="red", annotation_text="Baseline Profit", annotation_position="top right")
-    st.plotly_chart(fig, use_container_width=True)
+split_ratio = custom_pct / 100 * np.ones_like(years)
 
-    # Required Additional Product Units
-    fig2 = go.Figure()
-    fig2.add_trace(go.Bar(x=res['years'], y=res['required_additional_product_units'], name='Required Additional Product Units', marker_color='orange'))
-    st.plotly_chart(fig2, use_container_width=True)
+# --- PLOTLY SUBPLOTS ---
+fig = make_subplots(
+    rows=2, cols=2,
+    subplot_titles=("Total Revenue", "Required Volume Multiplier", "Profit Margin", "Custom vs Product Split")
+)
 
-    # Units Comparison
-    fig3 = go.Figure()
-    fig3.add_trace(go.Bar(x=res['years'], y=res['custom_units_final'], name='Custom Units', marker_color='blue'))
-    fig3.add_trace(go.Bar(x=res['years'], y=res['product_units_final'], name='Product Units', marker_color='green', opacity=0.7))
-    st.plotly_chart(fig3, use_container_width=True)
+# Total Revenue
+fig.add_trace(go.Scatter(x=years, y=total_revenue, mode='lines+markers', name="Revenue"), row=1, col=1)
 
-    # -----------------------------
-    # Insight Panel
-    # -----------------------------
-    st.markdown("**Scenario Insights & Warnings**")
-    for year, warnings in zip(res['years'], res['warnings']):
-        st.markdown(f"**Year {year}:**")
-        if warnings:
-            for w in warnings:
-                st.markdown(f"- ⚠ {w}")
-        else:
-            st.markdown("- ✅ All targets met, profit maintained within capacity")
+# Required Volume Multiplier
+fig.add_trace(go.Scatter(x=years, y=required_volume_multiplier, mode='lines+markers', name="Volume Factor"), row=1, col=2)
+
+# Profit Margin
+fig.add_trace(go.Scatter(x=years, y=profit_margin, mode='lines+markers', name="Profit Margin"), row=2, col=1)
+
+# Custom vs Product Split
+fig.add_trace(go.Scatter(x=years, y=split_ratio*100, mode='lines+markers', name="Custom %"), row=2, col=2)
+
+fig.update_layout(
+    height=700, width=1000,
+    title_text="Revenue Forecast Dashboard",
+    showlegend=True,
+    hovermode="x unified"
+)
+
+# Show the figure
+st.plotly_chart(fig, use_container_width=True)
+
+# --- INSIGHTS SECTION ---
+st.markdown("""
+**Insights:**
+- **Total Revenue:** Combines custom and product sales, including design services.
+- **Required Volume Multiplier:** Shows how much product volume must increase to match profits if custom share decreases.
+- **Profit Margin:** Illustrates overall profitability based on mix.
+- **Custom vs Product Split:** Current slider mix of custom vs product homes.
+""")
