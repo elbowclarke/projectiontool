@@ -13,7 +13,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 st.title("Revenue & Product Mix Forecaster")
-st.markdown("Visualize 10-year growth and volume required when shifting from custom-heavy work to more product-focused work.")
+st.markdown("Visualize 10-year growth and profit impact when shifting from custom-heavy work to more product-focused work.")
 
 # --- Sidebar sliders ---
 st.sidebar.header("Scenario Inputs")
@@ -27,99 +27,73 @@ product_margin = st.sidebar.slider("Product Work Margin %", 5, 30, 15, 1)
 annual_growth_rate = st.sidebar.slider("Annual Revenue Growth Rate %", 0, 25, 8, 1)
 
 # --- Compute projections ---
-def project_revenue_mix(years, revenue, growth, base_mix, target_mix, base_margin, product_margin):
+def project_mix(years, revenue, growth, base_mix, target_mix, base_margin, product_margin):
     df = pd.DataFrame(index=range(1, years+1))
     df['Revenue'] = revenue * ((1 + growth/100) ** (df.index - 1))
     
-    # Linear shift in mix from base_mix -> target_mix
+    # Linear shift in mix
     df['CustomMix'] = np.linspace(base_mix, target_mix, years)
     df['ProductMix'] = 100 - df['CustomMix']
     
-    # Compute blended margin
-    df['ProfitMargin'] = (df['CustomMix']/100 * base_margin) + (df['ProductMix']/100 * product_margin)
-    df['Profit'] = df['Revenue'] * df['ProfitMargin']/100
+    # Revenue split
+    df['CustomRevenue'] = df['Revenue'] * df['CustomMix']/100
+    df['ProductRevenue'] = df['Revenue'] * df['ProductMix']/100
     
-    # Compute product volume required to maintain baseline profit
-    baseline_profit = revenue * base_margin / 100
-    df['RequiredRevenue_Product'] = baseline_profit / (product_margin/100)
-    df['RequiredVolumeFactor'] = df['RequiredRevenue_Product'] / df['Revenue']
+    # Profit margin
+    df['ProfitMargin'] = (df['CustomRevenue']*base_margin + df['ProductRevenue']*product_margin)/df['Revenue']
+    df['Profit'] = df['Revenue'] * df['ProfitMargin']/100
     
     return df
 
-baseline = project_revenue_mix(years, baseline_revenue, annual_growth_rate,
-                               base_custom_mix, base_custom_mix,
-                               baseline_profit_margin, product_margin)
+scenario = project_mix(years, baseline_revenue, annual_growth_rate,
+                       base_custom_mix, target_custom_mix,
+                       baseline_profit_margin, product_margin)
 
-scenario = project_revenue_mix(years, baseline_revenue, annual_growth_rate,
-                               base_custom_mix, target_custom_mix,
-                               baseline_profit_margin, product_margin)
-
-# --- Tabs for saved scenarios ---
-if 'saved_scenarios' not in st.session_state:
-    st.session_state.saved_scenarios = {}
-
+# --- Columns layout ---
 col1, col2, col3 = st.columns([1,2,1])
 
-# --- Sliders are in col1 ---
+# --- Sliders in col1 ---
 with col1:
-    if st.button("Save Current Scenario"):
-        scenario_name = st.text_input("Scenario Name", value=f"Scenario {len(st.session_state.saved_scenarios)+1}")
-        if scenario_name:
-            st.session_state.saved_scenarios[scenario_name] = scenario
-            st.success(f"Saved scenario: {scenario_name}")
+    st.markdown("### Scenario Controls")
+    st.write(f"Shifting from **{base_custom_mix}/{100-base_custom_mix}** mix to **{target_custom_mix}/{100-target_custom_mix}** over {years} years.")
 
-# --- Charts in col2 ---
+# --- Chart in col2 ---
 with col2:
     fig = go.Figure()
-
-    # Revenue & Profit (primary y-axis)
-    fig.add_trace(go.Scatter(x=baseline.index, y=baseline['Revenue'], 
-                             mode='lines+markers', name='Baseline Revenue',
-                             hovertemplate='Year %{x}<br>Revenue: $%{y:.1f}M'))
-    fig.add_trace(go.Scatter(x=scenario.index, y=scenario['Revenue'], 
-                             mode='lines+markers', name='Scenario Revenue',
-                             hovertemplate='Year %{x}<br>Revenue: $%{y:.1f}M'))
-    fig.add_trace(go.Scatter(x=baseline.index, y=baseline['Profit'], 
-                             mode='lines+markers', name='Baseline Profit',
-                             line=dict(dash='dot'), hovertemplate='Year %{x}<br>Profit: $%{y:.1f}M'))
-    fig.add_trace(go.Scatter(x=scenario.index, y=scenario['Profit'], 
-                             mode='lines+markers', name='Scenario Profit',
-                             line=dict(dash='dot'), hovertemplate='Year %{x}<br>Profit: $%{y:.1f}M'))
-
-    # Required product revenue (secondary y-axis)
-    fig.add_trace(go.Scatter(x=scenario.index, y=scenario['RequiredRevenue_Product'], 
-                             mode='lines', name='Required Product Revenue',
-                             line=dict(color='firebrick', dash='dash'),
-                             yaxis="y2",
-                             hovertemplate='Year %{x}<br>Required Product Revenue: $%{y:.1f}M'))
-
+    
+    # Stacked bars for revenue mix
+    fig.add_trace(go.Bar(x=scenario.index, y=scenario['CustomRevenue'],
+                         name='Custom Work Revenue', marker_color='royalblue',
+                         hovertemplate='Year %{x}<br>Custom Revenue: $%{y:.1f}M'))
+    fig.add_trace(go.Bar(x=scenario.index, y=scenario['ProductRevenue'],
+                         name='Product Work Revenue', marker_color='orange',
+                         hovertemplate='Year %{x}<br>Product Revenue: $%{y:.1f}M'))
+    
+    # Overlay line for profit margin
+    fig.add_trace(go.Scatter(x=scenario.index, y=scenario['ProfitMargin'],
+                             name='Profit Margin %', mode='lines+markers',
+                             line=dict(color='green', width=3), yaxis='y2',
+                             hovertemplate='Year %{x}<br>Profit Margin: %{y:.1f}%'))
+    
     fig.update_layout(
-        title="Revenue, Profit, and Required Product Volume Over 10 Years",
+        title="Revenue Mix & Profit Margin Over 10 Years",
         xaxis_title="Year",
-        yaxis_title="Revenue / Profit ($M)",
-        yaxis2=dict(title="Required Product Revenue ($M)", overlaying='y', side='right'),
+        yaxis=dict(title="Revenue ($M)", side='left'),
+        yaxis2=dict(title="Profit Margin (%)", overlaying='y', side='right', showgrid=False),
+        barmode='stack',
         legend=dict(yanchor="top", y=0.99, xanchor="left", x=0.01),
         template="plotly_white",
         height=600
     )
-
+    
     st.plotly_chart(fig, use_container_width=True)
 
 # --- Executive Insights in col3 ---
 with col3:
     st.header("Executive Insights")
-    st.markdown("""
-    **Scenario Analysis:**  
-    - Shifting from a {:.0f}/{:.0f} custom/product mix to {:.0f}/{:.0f} mix over 10 years.
-    - Product work has lower margins ({:.0f}%) than custom work ({:.0f}%).
-    - Profit growth requires increasing product volume by up to {:.1f}x in Year 10 to maintain baseline profit.
-    """.format(base_custom_mix, 100-base_custom_mix,
-               target_custom_mix, 100-target_custom_mix,
-               product_margin, baseline_profit_margin,
-               scenario['RequiredVolumeFactor'].iloc[-1]))
-    
-    if st.session_state.saved_scenarios:
-        st.subheader("Saved Scenarios")
-        for name, df_s in st.session_state.saved_scenarios.items():
-            st.markdown(f"**{name}**")
-            st.dataframe(df_s[['Revenue','Profit','RequiredRevenue_Product']])
+    st.markdown(f"""
+    - Revenue grows from **${baseline_revenue:.1f}M** to **${scenario['Revenue'].iloc[-1]:.1f}M** over 10 years.  
+    - Custom work decreases from **{base_custom_mix}%** to **{target_custom_mix}%** of revenue.  
+    - Product work grows, requiring careful management due to lower margin ({product_margin}%) vs custom ({baseline_profit_margin}%).  
+    - Profit margin trends from **{baseline_profit_margin}%** to **{scenario['ProfitMargin'].iloc[-1]:.1f}%** by Year 10.  
+    """)
