@@ -3,7 +3,7 @@ import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
 
-st.set_page_config(page_title="Bensonwood Strategic Forecaster", layout="wide")
+st.set_page_config(page_title="Bensonwood Revenue Forecaster", layout="wide")
 
 # --- Logo ---
 st.markdown("""
@@ -12,201 +12,182 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-st.title("Strategic Revenue & Profit Transition Model")
+st.title("Revenue & Product Mix Forecaster")
+st.markdown("Model the revenue and profit implications of shifting from custom work toward product-based work.")
 
-# ---------------- SIDEBAR ---------------- #
-
+# --- Sidebar ---
 st.sidebar.header("Scenario Inputs")
 
 years = st.sidebar.slider(
     "Planning Horizon (Years)",
-    5, 15, 10,
-    help="Number of years over which the transition occurs."
+    5, 15, 10, 1,
+    help="Select how many years the transition from custom-heavy to product-heavy mix should take."
+)
+
+base_custom_mix = st.sidebar.slider(
+    "Starting Custom Work %",
+    50, 80, 60, 1,
+    help="Percentage of revenue currently derived from custom project work."
+)
+
+target_custom_mix = st.sidebar.slider(
+    "Target Custom Work %",
+    40, 70, 50, 1,
+    help="Desired percentage of revenue from custom work at the end of the planning horizon."
 )
 
 baseline_revenue = st.sidebar.number_input(
     "Current Annual Revenue ($M)",
-    1.0, 200.0, 10.0, 0.5,
-    help="Current total company revenue."
-)
-
-annual_growth = st.sidebar.slider(
-    "Annual Revenue Growth Rate %",
-    0, 25, 8,
-    help="Annual top-line growth assumption."
-)
-
-start_custom = st.sidebar.slider(
-    "Starting Custom Mix %",
-    50, 80, 60,
-    help="Current % of revenue from custom work."
-)
-
-target_custom = st.sidebar.slider(
-    "Target Custom Mix %",
-    40, 70, 50,
-    help="Target % of revenue from custom work at end of horizon."
+    1.0, 100.0, 10.0, 0.1,
+    help="Total company revenue in millions for the current year."
 )
 
 custom_margin = st.sidebar.slider(
     "Custom Work Margin %",
-    15, 35, 25,
-    help="Average margin earned on custom projects."
+    15, 35, 25, 1,
+    help="Average gross or contribution margin earned on custom project work."
 )
 
 product_margin = st.sidebar.slider(
     "Product Work Margin %",
-    10, 25, 18,
-    help="Average margin earned on product work."
+    10, 25, 18, 1,
+    help="Average gross or contribution margin earned on product-based work."
+)
+
+annual_growth_rate = st.sidebar.slider(
+    "Annual Revenue Growth Rate %",
+    0, 25, 8, 1,
+    help="Overall annual revenue growth assumption before mix effects."
 )
 
 benchmark_margin = st.sidebar.slider(
-    "Benchmark Margin %",
-    15, 30, 25,
-    help="Minimum acceptable blended company margin."
+    "Benchmark Profit Margin %",
+    15, 30, 25, 1,
+    help="Target or minimum acceptable blended company profit margin."
 )
 
-# ---------------- CALCULATIONS ---------------- #
+# --- Projection Function ---
+def project_mix(years, revenue, growth, base_mix, target_mix, custom_margin, product_margin):
+    df = pd.DataFrame(index=range(1, years + 1))
+    df['Revenue'] = revenue * ((1 + growth/100) ** (df.index - 1))
 
-def project(revenue, growth, years):
-    return [revenue * ((1 + growth/100) ** i) for i in range(years)]
+    df['CustomMix'] = np.linspace(base_mix, target_mix, years)
+    df['ProductMix'] = 100 - df['CustomMix']
 
-revenues = project(baseline_revenue, annual_growth, years)
+    df['CustomRevenue'] = df['Revenue'] * df['CustomMix'] / 100
+    df['ProductRevenue'] = df['Revenue'] * df['ProductMix'] / 100
 
-df = pd.DataFrame(index=range(1, years+1))
-df["Revenue"] = revenues
-
-# Baseline: fixed starting mix
-df["Baseline_CustomMix"] = start_custom
-df["Baseline_ProductMix"] = 100 - start_custom
-
-df["Baseline_Profit"] = (
-    df["Revenue"] *
-    ((start_custom/100)*custom_margin +
-     ((100-start_custom)/100)*product_margin) / 100
-)
-
-# Transition mix
-df["Transition_CustomMix"] = np.linspace(start_custom, target_custom, years)
-df["Transition_ProductMix"] = 100 - df["Transition_CustomMix"]
-
-df["Transition_Profit"] = (
-    df["Revenue"] *
-    ((df["Transition_CustomMix"]/100)*custom_margin +
-     (df["Transition_ProductMix"]/100)*product_margin) / 100
-)
-
-# Required product revenue to match baseline profit
-required_product_revenue = []
-
-for i in range(years):
-    revenue = df["Revenue"].iloc[i]
-    custom_mix = df["Transition_CustomMix"].iloc[i] / 100
-
-    custom_profit = revenue * custom_mix * custom_margin / 100
-    baseline_profit = df["Baseline_Profit"].iloc[i]
-
-    remaining_profit_needed = baseline_profit - custom_profit
-
-    if product_margin > 0:
-        required_product = remaining_profit_needed / (product_margin / 100)
-    else:
-        required_product = 0
-
-    actual_product_revenue = revenue * (1 - custom_mix)
-    additional_needed = max(0, required_product - actual_product_revenue)
-
-    required_product_revenue.append(additional_needed)
-
-df["Additional_Product_Revenue_Required"] = required_product_revenue
-
-# Cumulative profit
-df["Baseline_Cumulative"] = df["Baseline_Profit"].cumsum()
-df["Transition_Cumulative"] = df["Transition_Profit"].cumsum()
-
-# Crossover detection
-crossover_year = None
-for i in range(years):
-    if df["Transition_Cumulative"].iloc[i] >= df["Baseline_Cumulative"].iloc[i]:
-        crossover_year = i + 1
-        break
-
-# ---------------- LAYOUT ---------------- #
-
-col1, col2, col3 = st.columns([1,2,1])
-
-# ----- LEFT: Key Metrics ----- #
-with col1:
-    st.subheader("Required Volume Impact")
-
-    max_required = df["Additional_Product_Revenue_Required"].max()
-
-    st.metric(
-        "Max Additional Product Revenue Required",
-        f"${max_required:.1f}M"
+    df['ProfitMargin'] = (
+        (df['CustomRevenue'] * custom_margin +
+         df['ProductRevenue'] * product_margin)
+        / df['Revenue']
     )
 
-    if max_required > 0:
-        peak_year = df["Additional_Product_Revenue_Required"].idxmax()
-        st.write(f"Peak pressure occurs in Year {peak_year}")
-    else:
-        st.write("Transition maintains baseline profit without additional volume.")
+    df['Profit'] = df['Revenue'] * df['ProfitMargin'] / 100
 
-# ----- CENTER: Cumulative Profit Chart ----- #
+    return df
+
+scenario = project_mix(
+    years,
+    baseline_revenue,
+    annual_growth_rate,
+    base_custom_mix,
+    target_custom_mix,
+    custom_margin,
+    product_margin
+)
+
+below_benchmark = scenario[scenario['ProfitMargin'] < benchmark_margin]
+
+# --- Layout ---
+col1, col2, col3 = st.columns([1, 2, 1])
+
+# --- Left Column ---
+with col1:
+    st.markdown("### Scenario Summary")
+    st.write(f"Transition over {years} years.")
+    st.write(f"Revenue grows from ${baseline_revenue:.1f}M to ${scenario['Revenue'].iloc[-1]:.1f}M.")
+    st.write(f"Custom mix shifts from {base_custom_mix}% to {target_custom_mix}%.")
+
+# --- Center Chart ---
 with col2:
-
     fig = go.Figure()
 
-    fig.add_trace(go.Scatter(
-        x=df.index,
-        y=df["Baseline_Cumulative"],
-        name="Baseline Cumulative Profit",
-        mode="lines",
-        line=dict(width=3)
+    fig.add_trace(go.Bar(
+        x=scenario.index,
+        y=scenario['CustomRevenue'],
+        name='Custom Revenue',
+        hovertemplate='Year %{x}<br>Custom Revenue: $%{y:.1f}M'
+    ))
+
+    fig.add_trace(go.Bar(
+        x=scenario.index,
+        y=scenario['ProductRevenue'],
+        name='Product Revenue',
+        hovertemplate='Year %{x}<br>Product Revenue: $%{y:.1f}M'
     ))
 
     fig.add_trace(go.Scatter(
-        x=df.index,
-        y=df["Transition_Cumulative"],
-        name="Transition Cumulative Profit",
-        mode="lines",
-        line=dict(width=3, dash="dash")
+        x=scenario.index,
+        y=scenario['ProfitMargin'],
+        name='Profit Margin %',
+        mode='lines+markers',
+        yaxis='y2',
+        line=dict(width=3),
+        hovertemplate='Year %{x}<br>Blended Margin: %{y:.1f}%'
     ))
 
-    if crossover_year:
-        fig.add_vline(
-            x=crossover_year,
-            line_dash="dot"
-        )
+    if not below_benchmark.empty:
+        fig.add_trace(go.Scatter(
+            x=below_benchmark.index,
+            y=below_benchmark['ProfitMargin'],
+            name='Below Benchmark',
+            mode='markers',
+            marker=dict(size=10, color='red'),
+            yaxis='y2',
+            hovertemplate='Year %{x}<br>Below Benchmark: %{y:.1f}%'
+        ))
+
+    fig.add_trace(go.Scatter(
+        x=scenario.index,
+        y=[benchmark_margin] * len(scenario.index),
+        name='Benchmark Margin',
+        mode='lines',
+        yaxis='y2',
+        line=dict(dash='dash'),
+        hovertemplate='Benchmark: %{y:.1f}%'
+    ))
 
     fig.update_layout(
-        title="Cumulative Profit Comparison",
+        title="Revenue Mix & Profit Margin Projection",
         xaxis_title="Year",
-        yaxis_title="Cumulative Profit ($M)",
+        yaxis=dict(title="Revenue ($M)"),
+        yaxis2=dict(
+            title="Profit Margin (%)",
+            overlaying='y',
+            side='right',
+            range=[15, 30],
+            showgrid=False
+        ),
+        barmode='stack',
         template="plotly_white",
         height=600
     )
 
     st.plotly_chart(fig, use_container_width=True)
 
-# ----- RIGHT: Executive Summary ----- #
+# --- Executive Insights ---
 with col3:
-    st.subheader("Executive Summary")
+    st.header("Executive Insights")
+    st.markdown(f"""
+    - Ending Revenue: **${scenario['Revenue'].iloc[-1]:.1f}M**
+    - Ending Profit Margin: **{scenario['ProfitMargin'].iloc[-1]:.1f}%**
+    - Ending Profit: **${scenario['Profit'].iloc[-1]:.1f}M**
+    - Benchmark Margin: **{benchmark_margin}%**
+    """)
 
-    total_baseline = df["Baseline_Cumulative"].iloc[-1]
-    total_transition = df["Transition_Cumulative"].iloc[-1]
-
-    st.write(f"Baseline 10Y Profit: ${total_baseline:.1f}M")
-    st.write(f"Transition 10Y Profit: ${total_transition:.1f}M")
-
-    diff = total_transition - total_baseline
-
-    if diff > 0:
-        st.success(f"Transition Outperforms by ${diff:.1f}M")
+    if not below_benchmark.empty:
+        years_list = ", ".join([f"Year {y}" for y in below_benchmark.index])
+        st.error(f"Margin falls below benchmark in: {years_list}")
     else:
-        st.error(f"Transition Underperforms by ${abs(diff):.1f}M")
-
-    if crossover_year:
-        st.write(f"Crossover Year: Year {crossover_year}")
-    else:
-        st.write("No crossover within selected horizon.")
+        st.success("Margin remains at or above benchmark across all years.")
