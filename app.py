@@ -13,20 +13,58 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 st.title("Revenue & Product Mix Forecaster")
-st.markdown("Visualize 10-year growth and profit impact when shifting from custom-heavy work to more product-focused work.")
+st.markdown("Model the revenue and profit implications of shifting from custom work toward product-based work.")
 
 # --- Sidebar ---
 st.sidebar.header("Scenario Inputs")
 
-years = 10
-base_custom_mix = st.sidebar.slider("Baseline Custom Work %", 50, 80, 60, 1)
-target_custom_mix = st.sidebar.slider("Target Custom Work %", 40, 70, 50, 1)
-baseline_revenue = st.sidebar.number_input("Current Annual Revenue ($M)", 1.0, 100.0, 10.0, 0.1)
-baseline_profit_margin = st.sidebar.slider("Custom Work Margin %", 15, 35, 25, 1)
-product_margin = st.sidebar.slider("Product Work Margin %", 10, 25, 18, 1)
-annual_growth_rate = st.sidebar.slider("Annual Revenue Growth Rate %", 0, 25, 8, 1)
+years = st.sidebar.slider(
+    "Planning Horizon (Years)",
+    5, 15, 10, 1,
+    help="Select how many years the transition from custom-heavy to product-heavy mix should take."
+)
 
-benchmark_margin = st.sidebar.slider("Benchmark Profit Margin %", 15, 30, 25, 1)
+base_custom_mix = st.sidebar.slider(
+    "Starting Custom Work %",
+    50, 80, 60, 1,
+    help="Percentage of revenue currently derived from custom project work."
+)
+
+target_custom_mix = st.sidebar.slider(
+    "Target Custom Work %",
+    40, 70, 50, 1,
+    help="Desired percentage of revenue from custom work at the end of the planning horizon."
+)
+
+baseline_revenue = st.sidebar.number_input(
+    "Current Annual Revenue ($M)",
+    1.0, 100.0, 10.0, 0.1,
+    help="Total company revenue in millions for the current year."
+)
+
+custom_margin = st.sidebar.slider(
+    "Custom Work Margin %",
+    15, 35, 25, 1,
+    help="Average gross or contribution margin earned on custom project work."
+)
+
+product_margin = st.sidebar.slider(
+    "Product Work Margin %",
+    10, 25, 18, 1,
+    help="Average gross or contribution margin earned on product-based work."
+)
+
+annual_growth_rate = st.sidebar.slider(
+    "Annual Revenue Growth Rate %",
+    0, 25, 8, 1,
+    help="Overall annual revenue growth assumption before mix effects."
+)
+
+benchmark_margin = st.sidebar.slider(
+    "Benchmark Profit Margin %",
+    15, 30, 25, 1,
+    help="Target or minimum acceptable blended company profit margin."
+)
 
 # --- Projection Function ---
 def project_mix(years, revenue, growth, base_mix, target_mix, custom_margin, product_margin):
@@ -55,11 +93,10 @@ scenario = project_mix(
     annual_growth_rate,
     base_custom_mix,
     target_custom_mix,
-    baseline_profit_margin,
+    custom_margin,
     product_margin
 )
 
-# Identify below-benchmark years
 below_benchmark = scenario[scenario['ProfitMargin'] < benchmark_margin]
 
 # --- Layout ---
@@ -68,29 +105,28 @@ col1, col2, col3 = st.columns([1, 2, 1])
 # --- Left Column ---
 with col1:
     st.markdown("### Scenario Summary")
-    st.write(f"Shift from {base_custom_mix}% custom to {target_custom_mix}% custom over {years} years.")
+    st.write(f"Transition over {years} years.")
     st.write(f"Revenue grows from ${baseline_revenue:.1f}M to ${scenario['Revenue'].iloc[-1]:.1f}M.")
+    st.write(f"Custom mix shifts from {base_custom_mix}% to {target_custom_mix}%.")
 
 # --- Center Chart ---
 with col2:
     fig = go.Figure()
 
-    # Stacked revenue bars
     fig.add_trace(go.Bar(
         x=scenario.index,
         y=scenario['CustomRevenue'],
         name='Custom Revenue',
-        hovertemplate='Year %{x}<br>Custom: $%{y:.1f}M'
+        hovertemplate='Year %{x}<br>Custom Revenue: $%{y:.1f}M'
     ))
 
     fig.add_trace(go.Bar(
         x=scenario.index,
         y=scenario['ProductRevenue'],
         name='Product Revenue',
-        hovertemplate='Year %{x}<br>Product: $%{y:.1f}M'
+        hovertemplate='Year %{x}<br>Product Revenue: $%{y:.1f}M'
     ))
 
-    # Profit margin line
     fig.add_trace(go.Scatter(
         x=scenario.index,
         y=scenario['ProfitMargin'],
@@ -98,10 +134,9 @@ with col2:
         mode='lines+markers',
         yaxis='y2',
         line=dict(width=3),
-        hovertemplate='Year %{x}<br>Margin: %{y:.1f}%'
+        hovertemplate='Year %{x}<br>Blended Margin: %{y:.1f}%'
     ))
 
-    # Highlight below-benchmark years
     if not below_benchmark.empty:
         fig.add_trace(go.Scatter(
             x=below_benchmark.index,
@@ -113,7 +148,6 @@ with col2:
             hovertemplate='Year %{x}<br>Below Benchmark: %{y:.1f}%'
         ))
 
-    # Benchmark horizontal line
     fig.add_trace(go.Scatter(
         x=scenario.index,
         y=[benchmark_margin] * len(scenario.index),
@@ -125,12 +159,9 @@ with col2:
     ))
 
     fig.update_layout(
-        title="Revenue Mix & Profit Margin (10-Year Projection)",
+        title="Revenue Mix & Profit Margin Projection",
         xaxis_title="Year",
-        yaxis=dict(
-            title="Revenue ($M)",
-            side='left'
-        ),
+        yaxis=dict(title="Revenue ($M)"),
         yaxis2=dict(
             title="Profit Margin (%)",
             overlaying='y',
@@ -149,14 +180,14 @@ with col2:
 with col3:
     st.header("Executive Insights")
     st.markdown(f"""
-    - Ending revenue: **${scenario['Revenue'].iloc[-1]:.1f}M**
-    - Ending profit margin: **{scenario['ProfitMargin'].iloc[-1]:.1f}%**
-    - Ending profit: **${scenario['Profit'].iloc[-1]:.1f}M**
-    - Benchmark margin: **{benchmark_margin}%**
+    - Ending Revenue: **${scenario['Revenue'].iloc[-1]:.1f}M**
+    - Ending Profit Margin: **{scenario['ProfitMargin'].iloc[-1]:.1f}%**
+    - Ending Profit: **${scenario['Profit'].iloc[-1]:.1f}M**
+    - Benchmark Margin: **{benchmark_margin}%**
     """)
 
     if not below_benchmark.empty:
         years_list = ", ".join([f"Year {y}" for y in below_benchmark.index])
         st.error(f"Margin falls below benchmark in: {years_list}")
     else:
-        st.success("Margin stays at or above benchmark across all years.")
+        st.success("Margin remains at or above benchmark across all years.")
