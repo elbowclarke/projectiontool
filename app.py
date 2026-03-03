@@ -85,6 +85,12 @@ st.markdown(
 
         .stAlert {
             border-radius: 10px;
+            border: 1px solid var(--bw-border);
+            background-color: #1a2a27 !important;
+        }
+
+        .stAlert [data-testid="stMarkdownContainer"] p {
+            color: var(--bw-text) !important;
         }
     </style>
     """,
@@ -117,7 +123,7 @@ target_custom_mix = st.sidebar.slider(
 
 baseline_revenue = st.sidebar.number_input(
     "Current Annual Revenue ($M)",
-    1.0, 100.0, 10.0, 0.1,
+    1.0, 100.0, 32.5, 0.1,
     help="Total company revenue in millions for the current year."
 )
 
@@ -145,10 +151,11 @@ benchmark_margin = st.sidebar.slider(
     help="Target or minimum acceptable blended company profit margin."
 )
 
+
 # --- Projection Function ---
 def project_mix(years, revenue, growth, base_mix, target_mix, custom_margin, product_margin):
     df = pd.DataFrame(index=range(1, years + 1))
-    df['Revenue'] = revenue * ((1 + growth/100) ** (df.index - 1))
+    df['Revenue'] = revenue * ((1 + growth / 100) ** (df.index - 1))
 
     df['CustomMix'] = np.linspace(base_mix, target_mix, years)
     df['ProductMix'] = 100 - df['CustomMix']
@@ -173,7 +180,17 @@ def apply_bensonwood_figure_style(fig):
         plot_bgcolor='#162321',
         font=dict(family='Montserrat, sans-serif', color='#e7efec'),
         colorway=['#2f5a51', '#b88152', '#7f9b90', '#1f3a36'],
-        legend=dict(bgcolor='rgba(22,35,33,0.85)', bordercolor='#2d4540', borderwidth=1),
+        legend=dict(
+            bgcolor='rgba(22,35,33,0.85)',
+            bordercolor='#2d4540',
+            borderwidth=1,
+            orientation='h',
+            yanchor='top',
+            y=-0.18,
+            xanchor='center',
+            x=0.5,
+        ),
+        margin=dict(b=120),
     )
     fig.update_xaxes(gridcolor='#2d4540', zerolinecolor='#2d4540')
     fig.update_yaxes(gridcolor='#2d4540', zerolinecolor='#2d4540')
@@ -227,6 +244,46 @@ below_benchmark = scenario[scenario['ProfitMargin'] < benchmark_margin]
 # --- Layout ---
 col1, col2, col3 = st.columns([1, 2, 1])
 
+chart_options = [
+    "Revenue Mix & Margin",
+    "Required Product Volume",
+    "Baseline vs Transition",
+    "Cumulative Profit Crossover",
+]
+selected_chart = col2.radio(
+    "Chart Tabs",
+    chart_options,
+    horizontal=True,
+    label_visibility="collapsed",
+)
+
+chart_guides = {
+    "Revenue Mix & Margin": """
+**Revenue Mix & Margin**
+- We can see how our total revenue is split between custom and product work each year.
+- We can track the blended margin line to understand when our profitability improves or slips.
+- We can spot benchmark risk immediately by watching red points where margin falls below target.
+""",
+    "Required Product Volume": """
+**Required Product Volume to Maintain Benchmark Profit**
+- We compare our projected product revenue against the product revenue required to hold our benchmark margin.
+- If the required line runs above our projected bars, we need a plan for more volume, pricing improvements, and/or cost reductions.
+- We can use this chart as an operating target because it translates a margin goal into concrete dollar volume.
+""",
+    "Baseline vs Transition": """
+**Baseline vs Transition Cumulative Comparison**
+- We compare the total profit we accumulate over time under two paths: no mix change versus transition to target mix.
+- We can judge strategy durability by focusing on cumulative outcome, not single-year volatility.
+- A widening spread tells us which path is compounding value faster across the full horizon.
+""",
+    "Cumulative Profit Crossover": """
+**Cumulative Profit Curve with Crossover Year**
+- We track the running cumulative profit difference between the transition path and the baseline path.
+- Values above zero mean our transition has produced more total profit than baseline to date.
+- The crossover marker identifies the first year the transition path pulls ahead cumulatively.
+""",
+}
+
 # --- Left Column ---
 with col1:
     st.markdown("### Scenario Summary")
@@ -234,16 +291,12 @@ with col1:
     st.write(f"Revenue grows from ${baseline_revenue:.1f}M to ${scenario['Revenue'].iloc[-1]:.1f}M.")
     st.write(f"Custom mix shifts from {base_custom_mix}% to {target_custom_mix}%.")
 
+    st.markdown("### Chart Guide")
+    st.markdown(chart_guides[selected_chart])
+
 # --- Center Chart ---
 with col2:
-    tab1, tab2, tab3, tab4 = st.tabs([
-        "Revenue Mix & Margin",
-        "Required Product Volume",
-        "Baseline vs Transition",
-        "Cumulative Profit Crossover",
-    ])
-
-    with tab1:
+    if selected_chart == "Revenue Mix & Margin":
         fig = go.Figure()
 
         fig.add_trace(go.Bar(
@@ -251,7 +304,14 @@ with col2:
             y=scenario['CustomRevenue'],
             name='Custom Revenue',
             marker_color='#2f5a51',
-            hovertemplate='Year %{x}<br>Custom Revenue: $%{y:.1f}M'
+            customdata=np.stack([scenario['CustomMix'], scenario['Revenue']], axis=-1),
+            hovertemplate=(
+                'Year %{x}<br>'
+                'Custom Revenue: $%{y:.2f}M<br>'
+                'Custom Mix: %{customdata[0]:.1f}%<br>'
+                'Total Revenue: $%{customdata[1]:.2f}M'
+                '<extra></extra>'
+            )
         ))
 
         fig.add_trace(go.Bar(
@@ -259,7 +319,14 @@ with col2:
             y=scenario['ProductRevenue'],
             name='Product Revenue',
             marker_color='#b88152',
-            hovertemplate='Year %{x}<br>Product Revenue: $%{y:.1f}M'
+            customdata=np.stack([scenario['ProductMix'], scenario['Revenue']], axis=-1),
+            hovertemplate=(
+                'Year %{x}<br>'
+                'Product Revenue: $%{y:.2f}M<br>'
+                'Product Mix: %{customdata[0]:.1f}%<br>'
+                'Total Revenue: $%{customdata[1]:.2f}M'
+                '<extra></extra>'
+            )
         ))
 
         fig.add_trace(go.Scatter(
@@ -269,7 +336,14 @@ with col2:
             mode='lines+markers',
             yaxis='y2',
             line=dict(width=3, color='#1f3a36'),
-            hovertemplate='Year %{x}<br>Blended Margin: %{y:.1f}%'
+            customdata=np.stack([scenario['Profit'], scenario['Revenue']], axis=-1),
+            hovertemplate=(
+                'Year %{x}<br>'
+                'Blended Margin: %{y:.2f}%<br>'
+                'Estimated Profit: $%{customdata[0]:.2f}M<br>'
+                'Total Revenue: $%{customdata[1]:.2f}M'
+                '<extra></extra>'
+            )
         ))
 
         if not below_benchmark.empty:
@@ -280,7 +354,14 @@ with col2:
                 mode='markers',
                 marker=dict(size=10, color='#a33a2a'),
                 yaxis='y2',
-                hovertemplate='Year %{x}<br>Below Benchmark: %{y:.1f}%'
+                customdata=np.stack([below_benchmark['Profit'], below_benchmark['Revenue']], axis=-1),
+                hovertemplate=(
+                    'Year %{x}<br>'
+                    'Margin: %{y:.2f}% (below benchmark)<br>'
+                    'Estimated Profit: $%{customdata[0]:.2f}M<br>'
+                    'Total Revenue: $%{customdata[1]:.2f}M'
+                    '<extra></extra>'
+                )
             ))
 
         fig.add_trace(go.Scatter(
@@ -290,7 +371,7 @@ with col2:
             mode='lines',
             yaxis='y2',
             line=dict(dash='dash', color='#7f9b90'),
-            hovertemplate='Benchmark: %{y:.1f}%'
+            hovertemplate='Benchmark Margin Target: %{y:.2f}%<extra></extra>'
         ))
 
         fig.update_layout(
@@ -310,14 +391,21 @@ with col2:
         apply_bensonwood_figure_style(fig)
         st.plotly_chart(fig, use_container_width=True)
 
-    with tab2:
+    elif selected_chart == "Required Product Volume":
         required_fig = go.Figure()
         required_fig.add_trace(go.Bar(
             x=scenario.index,
             y=scenario['ProductRevenue'],
             name='Projected Product Revenue',
             marker_color='#2f5a51',
-            hovertemplate='Year %{x}<br>Projected Product Revenue: $%{y:.1f}M'
+            customdata=np.stack([scenario['RequiredProductRevenueAtBenchmark'], scenario['RequiredProductMixAtBenchmark']], axis=-1),
+            hovertemplate=(
+                'Year %{x}<br>'
+                'Projected Product Revenue: $%{y:.2f}M<br>'
+                'Required at Benchmark: $%{customdata[0]:.2f}M<br>'
+                'Required Product Mix: %{customdata[1]:.1f}%'
+                '<extra></extra>'
+            )
         ))
         required_fig.add_trace(go.Scatter(
             x=scenario.index,
@@ -325,7 +413,14 @@ with col2:
             name='Required Product Revenue to Hit Benchmark',
             mode='lines+markers',
             line=dict(color='#b88152', width=3),
-            hovertemplate='Year %{x}<br>Required Product Revenue: $%{y:.1f}M'
+            customdata=np.stack([scenario['ProductRevenue'], scenario['ProfitMargin']], axis=-1),
+            hovertemplate=(
+                'Year %{x}<br>'
+                'Required Product Revenue: $%{y:.2f}M<br>'
+                'Projected Product Revenue: $%{customdata[0]:.2f}M<br>'
+                'Projected Blended Margin: %{customdata[1]:.2f}%'
+                '<extra></extra>'
+            )
         ))
         required_fig.update_layout(
             title="Required Product Volume to Maintain Benchmark Profit",
@@ -336,7 +431,7 @@ with col2:
         apply_bensonwood_figure_style(required_fig)
         st.plotly_chart(required_fig, use_container_width=True)
 
-    with tab3:
+    elif selected_chart == "Baseline vs Transition":
         comparison_fig = go.Figure()
         comparison_fig.add_trace(go.Scatter(
             x=scenario.index,
@@ -344,7 +439,14 @@ with col2:
             name='Baseline Cumulative Profit',
             mode='lines+markers',
             line=dict(width=3, color='#7f9b90'),
-            hovertemplate='Year %{x}<br>Baseline Cumulative Profit: $%{y:.1f}M'
+            customdata=np.stack([baseline_scenario['Profit'], baseline_scenario['ProfitMargin']], axis=-1),
+            hovertemplate=(
+                'Year %{x}<br>'
+                'Baseline Cumulative Profit: $%{y:.2f}M<br>'
+                'Baseline Annual Profit: $%{customdata[0]:.2f}M<br>'
+                'Baseline Margin: %{customdata[1]:.2f}%'
+                '<extra></extra>'
+            )
         ))
         comparison_fig.add_trace(go.Scatter(
             x=scenario.index,
@@ -352,7 +454,14 @@ with col2:
             name='Transition Cumulative Profit',
             mode='lines+markers',
             line=dict(width=3, color='#2f5a51'),
-            hovertemplate='Year %{x}<br>Transition Cumulative Profit: $%{y:.1f}M'
+            customdata=np.stack([scenario['Profit'], scenario['ProfitMargin']], axis=-1),
+            hovertemplate=(
+                'Year %{x}<br>'
+                'Transition Cumulative Profit: $%{y:.2f}M<br>'
+                'Transition Annual Profit: $%{customdata[0]:.2f}M<br>'
+                'Transition Margin: %{customdata[1]:.2f}%'
+                '<extra></extra>'
+            )
         ))
         comparison_fig.update_layout(
             title='Baseline vs Transition Cumulative Profit Comparison',
@@ -363,7 +472,7 @@ with col2:
         apply_bensonwood_figure_style(comparison_fig)
         st.plotly_chart(comparison_fig, use_container_width=True)
 
-    with tab4:
+    else:
         crossover_fig = go.Figure()
         crossover_fig.add_trace(go.Scatter(
             x=scenario.index,
@@ -371,7 +480,14 @@ with col2:
             name='Transition Advantage',
             mode='lines+markers',
             line=dict(width=3, color='#2f5a51'),
-            hovertemplate='Year %{x}<br>Cumulative Difference: $%{y:.1f}M'
+            customdata=np.stack([scenario['CumulativeProfit'], baseline_scenario['CumulativeProfit']], axis=-1),
+            hovertemplate=(
+                'Year %{x}<br>'
+                'Cumulative Difference: $%{y:.2f}M<br>'
+                'Transition Cumulative: $%{customdata[0]:.2f}M<br>'
+                'Baseline Cumulative: $%{customdata[1]:.2f}M'
+                '<extra></extra>'
+            )
         ))
         crossover_fig.add_hline(
             y=0,
@@ -392,7 +508,14 @@ with col2:
                 textposition='top center',
                 marker=dict(size=12, color='#b88152'),
                 name='Crossover Year',
-                hovertemplate='Year %{x}<br>Crossover Difference: $%{y:.1f}M'
+                customdata=np.array([[scenario.loc[crossover_year, 'CumulativeProfit'], baseline_scenario.loc[crossover_year, 'CumulativeProfit']]]),
+                hovertemplate=(
+                    'Year %{x}<br>'
+                    'Crossover Difference: $%{y:.2f}M<br>'
+                    'Transition Cumulative: $%{customdata[0]:.2f}M<br>'
+                    'Baseline Cumulative: $%{customdata[1]:.2f}M'
+                    '<extra></extra>'
+                )
             ))
 
         crossover_fig.update_layout(
@@ -419,31 +542,6 @@ with col3:
         st.error(f"Margin falls below benchmark in: {years_list}")
     else:
         st.success("Margin remains at or above benchmark across all years.")
-
-    st.markdown("### Chart Guide")
-    st.markdown(
-        """
-        **Revenue Mix & Margin**
-        - Shows where total revenue comes from each year (custom vs product work).
-        - The line shows our blended margin, so we can quickly see when our business is becoming more or less profitable.
-        - Red dots call out years where the margin drops below our benchmark.
-
-        **Required Product Volume to Maintain Benchmark Profit**
-        - Compares projected product revenue against the product revenue needed to keep benchmark profit.
-        - If the required line sits above projected bars, we know the plan needs either more product sales, better pricing, or lower costs.
-        - This makes the profit target concrete by translating it into required product volume.
-
-        **Baseline vs Transition Cumulative Comparison**
-        - Compares total profit accumulated over time for two paths: staying at today's mix vs moving toward the target mix.
-        - This helps us evaluate the full journey, not just one year at a time.
-        - A widening gap signals one strategy compounding faster for us than the other.
-
-        **Cumulative Profit Curve with Crossover Year**
-        - Tracks the running profit advantage (or disadvantage) of the transition compared to baseline.
-        - The zero line is break-even: above it means transition has generated more total profit than baseline.
-        - The crossover marker shows when the transition strategy starts to pull ahead on a cumulative basis.
-        """
-    )
 
     if crossover_year is not None:
         st.info(f"Cumulative profit crosses above baseline in Year {crossover_year}.")
