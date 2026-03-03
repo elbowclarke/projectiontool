@@ -184,6 +184,7 @@ annual_growth_rate = st.sidebar.slider(
     help="Overall annual revenue growth assumption before mix effects."
 )
 
+st.sidebar.markdown("---")
 st.sidebar.subheader("Transition Projection")
 
 years = st.sidebar.slider(
@@ -226,7 +227,7 @@ def project_mix(years, revenue, growth, base_mix, target_mix, custom_margin, pro
 
 
 def apply_bensonwood_figure_style(fig):
-    # Restore the previous graph color scheme + styling
+    # previous color scheme + styling
     fig.update_layout(
         template="plotly_white",
         paper_bgcolor="rgba(0,0,0,0)",
@@ -293,6 +294,16 @@ crossover_year = int(crossover_candidates.index[0]) if not crossover_candidates.
 
 below_benchmark = scenario[scenario["ProfitMargin"] < benchmark_margin]
 
+# Additional “useful without breaking layout” metrics (derived, no extra charts)
+scenario["RevenueDelta"] = scenario["Revenue"] - baseline_scenario["Revenue"]
+scenario["ProfitDelta"] = scenario["Profit"] - baseline_scenario["Profit"]
+scenario["CumulativeProfitDelta"] = scenario["CumulativeProfit"] - baseline_scenario["CumulativeProfit"]
+
+avg_margin = float(scenario["ProfitMargin"].mean())
+min_margin = float(scenario["ProfitMargin"].min())
+max_margin = float(scenario["ProfitMargin"].max())
+worst_year = int(scenario["ProfitMargin"].idxmin())
+
 # --- Layout ---
 col1, col2, col3 = st.columns([1, 2, 1])
 
@@ -309,43 +320,37 @@ selected_chart = col2.radio(
     label_visibility="collapsed",
 )
 
-# Bring back chart descriptions/guides
 chart_guides = {
     "Revenue Mix & Margin": """
 **Revenue Mix & Margin**
 - See how total revenue splits between custom and product work each year.
-- Track the blended margin line to understand when profitability improves or slips.
-- Benchmark line shows the target margin. Red points indicate years below target.
+- Track blended margin and the benchmark target line.
+- Red points indicate years below benchmark.
 """,
     "Required Product Volume": """
 **Required Product Volume to Maintain Benchmark Profit**
 - Compare projected product revenue to the product revenue required to hold the benchmark margin.
-- If the required line is above the bars, volume/pricing/cost must improve to stay on target.
+- If required runs above projected, volume/pricing/cost needs to improve.
 """,
     "Baseline vs Transition": """
 **Baseline vs Transition Cumulative Comparison**
-- Compare cumulative profit over time: staying at today’s mix vs transitioning to the target mix.
-- Focus on compounding outcomes, not just one-year volatility.
+- Compare cumulative profit under two paths: no mix change vs transition to target mix.
+- Focuses on durability and compounding over time.
 """,
     "Cumulative Profit Crossover": """
 **Cumulative Profit Curve with Crossover Year**
 - Shows cumulative profit difference (Transition minus Baseline).
-- Above zero means the transition strategy has paid back vs baseline to date.
-- Marker indicates the first crossover year (if it occurs within the horizon).
+- Above zero means the transition has paid back vs baseline to date.
+- Marker indicates crossover year (if any).
 """,
 }
 
-# --- Left Column ---
+# --- Left Column (Chart Guide only; Scenario Summary removed) ---
 with col1:
-    st.markdown("### Scenario Summary")
-    st.markdown(f"- Transition over {years} years.")
-    st.markdown(f"- Revenue grows from ${baseline_revenue:.1f}M to ${scenario['Revenue'].iloc[-1]:.1f}M.")
-    st.markdown(f"- Custom mix shifts from {base_custom_mix}% to {target_custom_mix}%.")
-
     st.markdown("### Chart Guide")
     st.markdown(chart_guides[selected_chart])
 
-# --- Center Chart (tabs restored with all alternate diagrams) ---
+# --- Center Chart (tabs + alternate diagrams) ---
 with col2:
     if selected_chart == "Revenue Mix & Margin":
         fig = go.Figure()
@@ -397,7 +402,6 @@ with col2:
             )
         ))
 
-        # Below-benchmark markers (red)
         if not below_benchmark.empty:
             fig.add_trace(go.Scatter(
                 x=below_benchmark.index,
@@ -416,7 +420,6 @@ with col2:
                 )
             ))
 
-        # Benchmark line restored
         fig.add_trace(go.Scatter(
             x=scenario.index,
             y=[benchmark_margin] * len(scenario.index),
@@ -586,24 +589,32 @@ with col2:
         apply_bensonwood_figure_style(crossover_fig)
         st.plotly_chart(crossover_fig, use_container_width=True)
 
-# --- Executive Insights (alerts in-frame) ---
+# --- Scenario Insights (Scenario Summary consolidated here) ---
 with col3:
-    st.header("Executive Insights")
-    st.markdown(f"""
-    - Ending Revenue: **${scenario['Revenue'].iloc[-1]:.1f}M**
-    - Ending Profit Margin: **{scenario['ProfitMargin'].iloc[-1]:.1f}%**
-    - Ending Profit: **${scenario['Profit'].iloc[-1]:.1f}M**
-    - Benchmark Margin: **{benchmark_margin}%**
-    """)
+    st.header("Scenario Insights")
 
+    st.markdown(f"""
+- **Planning Horizon:** {years} years  
+- **Revenue Path:** ${baseline_revenue:.1f}M → **${scenario['Revenue'].iloc[-1]:.1f}M**  
+- **Custom Mix Shift:** {base_custom_mix}% → **{target_custom_mix}%**  
+- **Benchmark Margin:** **{benchmark_margin}%**  
+- **Ending Profit Margin:** **{scenario['ProfitMargin'].iloc[-1]:.1f}%**  
+- **Ending Profit:** **${scenario['Profit'].iloc[-1]:.1f}M**  
+""")
+
+    # Additional helpful (compact) diagnostics
+    st.markdown("**Margin Range (min / avg / max):** "
+                f"{min_margin:.1f}% / {avg_margin:.1f}% / {max_margin:.1f}%")
+    st.markdown(f"**Worst Margin Year:** Year {worst_year}")
+
+    if crossover_year is not None:
+        st.markdown(f"**Crossover Year (cumulative vs baseline):** Year {crossover_year}")
+    else:
+        st.markdown("**Crossover Year (cumulative vs baseline):** Not within horizon")
+
+    # Alerts (plain text, in-frame)
     if not below_benchmark.empty:
         years_list = ", ".join([f"Year {y}" for y in below_benchmark.index])
         st.markdown(f"**Margin below benchmark in:** {years_list}")
     else:
-        st.markdown("Margin remains at or above benchmark across all years.")
-
-    if crossover_year is not None:
-        st.markdown(f"Cumulative profit crosses above baseline in Year {crossover_year}.")
-    else:
-        st.markdown("Transition scenario does not cross above baseline cumulative profit within the selected horizon.")
-
+        st.markdown("**Margin below benchmark in:** None")
