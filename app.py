@@ -120,20 +120,64 @@ st.title("Revenue & Product Mix Forecaster")
 st.markdown("Model the revenue and profit implications of shifting from custom work toward product-based work.")
 
 # --- Sidebar ---
-
 LOGO_URL = "https://bensonwood.com/wp-content/uploads/2021/10/bensonwood-logo-wht.svg"
 
-# Logo at very top of sidebar
-try:
-    st.sidebar.image(LOGO_URL, use_column_width=True)
-except TypeError:
-    st.sidebar.image(LOGO_URL, use_container_width=True)
+# Use the older-compatible parameter consistently (your error log shows this is needed)
+st.sidebar.image(LOGO_URL, use_column_width=True)
 
 # Add spacing below logo
 st.sidebar.markdown("<div style='margin-bottom:20px;'></div>", unsafe_allow_html=True)
 
 # Scenario Inputs section
 st.sidebar.header("Scenario Inputs")
+
+years = st.sidebar.slider(
+    "Planning Horizon (Years)",
+    5, 15, 10, 1,
+    help="Select how many years the transition from custom-heavy to product-heavy mix should take."
+)
+
+base_custom_mix = st.sidebar.slider(
+    "Starting Custom Work %",
+    50, 80, 60, 1,
+    help="Percentage of revenue currently derived from custom project work."
+)
+
+target_custom_mix = st.sidebar.slider(
+    "Target Custom Work %",
+    40, 70, 50, 1,
+    help="Desired percentage of revenue from custom work at the end of the planning horizon."
+)
+
+baseline_revenue = st.sidebar.number_input(
+    "Current Annual Revenue ($M)",
+    1.0, 100.0, 32.5, 0.1,
+    help="Total company revenue in millions for the current year."
+)
+
+custom_margin = st.sidebar.slider(
+    "Custom Work Margin %",
+    15, 35, 25, 1,
+    help="Average gross or contribution margin earned on custom project work."
+)
+
+product_margin = st.sidebar.slider(
+    "Product Work Margin %",
+    10, 25, 18, 1,
+    help="Average gross or contribution margin earned on product-based work."
+)
+
+annual_growth_rate = st.sidebar.slider(
+    "Annual Revenue Growth Rate %",
+    0, 25, 8, 1,
+    help="Overall annual revenue growth assumption before mix effects."
+)
+
+benchmark_margin = st.sidebar.slider(
+    "Benchmark Profit Margin %",
+    15, 30, 21, 1,
+    help="Target or minimum acceptable blended company profit margin."
+)
 
 
 # --- Projection Function ---
@@ -538,6 +582,7 @@ with col3:
         st.markdown(f"Cumulative profit crosses above baseline in Year {crossover_year}.")
     else:
         st.markdown("Transition scenario does not cross above baseline cumulative profit within the selected horizon.")
+
 
 
 
