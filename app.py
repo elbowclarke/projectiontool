@@ -1,4 +1,5 @@
 import streamlit as st
+import streamlit.components.v1 as components
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
@@ -6,14 +7,14 @@ import plotly.graph_objects as go
 # IMPORTANT: Must be first Streamlit call and only once
 st.set_page_config(page_title="Bensonwood Revenue Forecast", layout="wide")
 
-# --- Theme + Branding (lighter page bg, sidebar pulled up, rounded main top corners, slider fixes) ---
+# --- Theme + Branding ---
 st.markdown(
     """
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap');
 
         :root {
-            --bw-bg: #1d2f2b;     /* lighter green background */
+            --bw-bg: #1d2f2b;     /* page background (lighter green) */
             --bw-panel: #162321;  /* main panel */
             --bw-panel-2: #1d2f2b;/* sidebar */
             --bw-border: #2d4540;
@@ -47,7 +48,7 @@ st.markdown(
             border-top-right-radius: 16px !important;
             overflow: hidden;
             padding: 1.25rem 1.5rem 1.75rem;
-            padding-top: 2.0rem; /* keep content clear of chrome bar */
+            padding-top: 2.0rem; /* clear the chrome bar */
         }
 
         h1, h2, h3, h4, p, li, label, span, div {
@@ -65,12 +66,6 @@ st.markdown(
         section[data-testid="stSidebar"] > div:first-child {
             padding-top: 0.25rem !important;
             margin-top: -8px !important;
-        }
-        section[data-testid="stSidebar"] h1:first-child,
-        section[data-testid="stSidebar"] h2:first-child,
-        section[data-testid="stSidebar"] h3:first-child {
-            margin-top: 0 !important;
-            padding-top: 0 !important;
         }
 
         /* Tabs */
@@ -135,26 +130,6 @@ st.markdown(
             color: #ffffff !important;
             border: 1px solid rgba(45, 69, 64, 0.8) !important;
             box-shadow: none !important;
-        }
-
-        /* Scenario Insights scroll area */
-        .scenario-insights-scroll {
-            max-height: 585px;          /* tune if needed */
-            overflow-y: auto;
-            padding-right: 10px;
-        }
-        .scenario-insights-scroll h3 {
-            margin-top: 0.7rem;
-            margin-bottom: 0.3rem;
-        }
-        .scenario-insights-scroll p, .scenario-insights-scroll li {
-            color: var(--bw-text) !important;
-            line-height: 1.35;
-        }
-        .scenario-insights-scroll hr {
-            border: 0;
-            border-top: 1px solid var(--bw-border);
-            margin: 0.8rem 0;
         }
     </style>
     """,
@@ -226,11 +201,11 @@ target_custom_mix = st.sidebar.slider(
 )
 
 # --- Projection Function ---
-def project_mix(years, revenue, growth, base_mix, target_mix, custom_margin, product_margin):
-    df = pd.DataFrame(index=range(1, years + 1))
+def project_mix(years_, revenue, growth, base_mix, target_mix, custom_margin_, product_margin_):
+    df = pd.DataFrame(index=range(1, years_ + 1))
     df["Revenue"] = revenue * ((1 + growth / 100) ** (df.index - 1))
 
-    df["CustomMix"] = np.linspace(base_mix, target_mix, years)
+    df["CustomMix"] = np.linspace(base_mix, target_mix, years_)
     df["ProductMix"] = 100 - df["CustomMix"]
 
     df["CustomRevenue"] = df["Revenue"] * df["CustomMix"] / 100
@@ -238,7 +213,7 @@ def project_mix(years, revenue, growth, base_mix, target_mix, custom_margin, pro
 
     # ProfitMargin is in percent units (e.g., 21.0 means 21%)
     df["ProfitMargin"] = (
-        (df["CustomRevenue"] * custom_margin + df["ProductRevenue"] * product_margin)
+        (df["CustomRevenue"] * custom_margin_ + df["ProductRevenue"] * product_margin_)
         / df["Revenue"]
     )
 
@@ -247,7 +222,6 @@ def project_mix(years, revenue, growth, base_mix, target_mix, custom_margin, pro
 
 
 def apply_bensonwood_figure_style(fig):
-    # previous color scheme + styling
     fig.update_layout(
         template="plotly_white",
         paper_bgcolor="rgba(0,0,0,0)",
@@ -307,14 +281,12 @@ scenario["RequiredProductMixAtBenchmark"] = (
     scenario["RequiredProductRevenueAtBenchmark"] / scenario["Revenue"] * 100
 ).clip(0, 100)
 
-crossover_candidates = scenario[
-    scenario["CumulativeProfit"] >= baseline_scenario["CumulativeProfit"]
-]
+crossover_candidates = scenario[scenario["CumulativeProfit"] >= baseline_scenario["CumulativeProfit"]]
 crossover_year = int(crossover_candidates.index[0]) if not crossover_candidates.empty else None
 
 below_benchmark = scenario[scenario["ProfitMargin"] < benchmark_margin]
 
-# Derived diagnostics (no extra charts)
+# Derived diagnostics
 avg_margin = float(scenario["ProfitMargin"].mean())
 min_margin = float(scenario["ProfitMargin"].min())
 max_margin = float(scenario["ProfitMargin"].max())
@@ -323,7 +295,6 @@ worst_year = int(scenario["ProfitMargin"].idxmin())
 ending_revenue = float(scenario["Revenue"].iloc[-1])
 ending_profit = float(scenario["Profit"].iloc[-1])
 ending_margin = float(scenario["ProfitMargin"].iloc[-1])
-
 baseline_ending_profit = float(baseline_scenario["Profit"].iloc[-1])
 ending_profit_delta = ending_profit - baseline_ending_profit
 
@@ -336,58 +307,51 @@ chart_options = [
     "Baseline vs Transition",
     "Cumulative Profit Crossover",
 ]
-selected_chart = col2.radio(
-    "Chart Tabs",
-    chart_options,
-    horizontal=True,
-    label_visibility="collapsed",
-)
+selected_chart = col2.radio("Chart Tabs", chart_options, horizontal=True, label_visibility="collapsed")
 
 # More layperson-friendly chart guides
 chart_guides = {
     "Revenue Mix & Margin": """
-### What you’re looking at
+### How to read this chart
 
-This view answers: **“What are we selling each year, and how profitable is it overall?”**
+This answers: **“What are we selling each year, and how profitable is it overall?”**
 
-- The **stacked bars** show total revenue each year, split into **Custom** (green) and **Product** (wood).
-- The **white line** is the company’s **blended profit margin** (how much profit you keep per dollar of revenue).
-- The **blue dashed line** is your **benchmark target margin**.
-- **Red dots** flag any year where the blended margin drops below your benchmark (a potential “stress year”).
+- The **stacked bars** are **total revenue**, split into **Custom** and **Product**.
+- The **white line** is the **blended profit margin** (how much profit you keep per dollar of revenue).
+- The **blue dashed line** is your **benchmark margin target**.
+- **Red dots** flag years when the blended margin falls below the benchmark (potential “stress years”).
 """,
     "Required Product Volume": """
-### What you’re looking at
+### How to read this chart
 
-This view answers: **“How much product revenue do we need to keep margins on target?”**
+This answers: **“How much product revenue do we need to stay on the benchmark?”**
 
-- The **bars** show the **product revenue you’re projecting**.
-- The **line** shows the **product revenue required** to maintain the benchmark margin, given:
-  - your current custom revenue,
-  - custom margin,
-  - product margin.
+- The **bars** are the **product revenue you’re projecting**.
+- The **line** is the **product revenue required** to keep the blended margin at the benchmark,
+  given your custom revenue and both margins.
 
-If the **required line is above the bars**, the scenario is saying:
-**“We’d need more product volume (or better product margin / costs) to hit the benchmark.”**
+If the **required line is above the bars**, the plan needs:
+**more product volume, better product margin, better costs, or a slower transition.**
 """,
     "Baseline vs Transition": """
-### What you’re looking at
+### How to read this chart
 
-This view answers: **“Over time, does the transition strategy create more total profit than staying the same?”**
+This answers: **“Does the transition make more total profit over time than staying the same?”**
 
-- One line is **Baseline** (no change in mix).
-- The other is **Transition** (moving toward the target mix).
-- Because this is **cumulative profit**, it’s about the **total dollars earned over time**, not a single year.
+- **Baseline** keeps today’s mix (no shift).
+- **Transition** gradually shifts to your target mix.
+- Because it’s **cumulative profit**, this shows the **running total profit earned** across years.
 
-If the transition line stays above baseline, the strategy is compounding value faster.
+If Transition stays above Baseline, the strategy is compounding value faster.
 """,
     "Cumulative Profit Crossover": """
-### What you’re looking at
+### How to read this chart
 
-This view answers: **“When does the transition pay back?”**
+This answers: **“When does the strategy pay back?”**
 
-- The line is **Transition cumulative profit minus Baseline cumulative profit**.
-- **Above zero** means the transition has generated **more total profit** than the baseline up to that point.
-- The **crossover marker** (if it appears) is the first year the transition pulls ahead overall.
+- The line is: **(Transition cumulative profit) − (Baseline cumulative profit)**.
+- **Above zero** means the transition has generated **more total profit so far** than baseline.
+- The crossover marker shows the **first year** the transition pulls ahead (if it happens).
 """,
 }
 
@@ -396,7 +360,7 @@ with col1:
     st.markdown("### Chart Guide")
     st.markdown(chart_guides[selected_chart])
 
-# --- Center Chart (tabs + alternate diagrams) ---
+# --- Center Chart (tabs) ---
 with col2:
     if selected_chart == "Revenue Mix & Margin":
         fig = go.Figure()
@@ -413,7 +377,7 @@ with col2:
                 "Custom Mix: %{customdata[0]:.1f}%<br>"
                 "Total Revenue: $%{customdata[1]:.2f}M"
                 "<extra></extra>"
-            )
+            ),
         ))
 
         fig.add_trace(go.Bar(
@@ -428,7 +392,7 @@ with col2:
                 "Product Mix: %{customdata[0]:.1f}%<br>"
                 "Total Revenue: $%{customdata[1]:.2f}M"
                 "<extra></extra>"
-            )
+            ),
         ))
 
         fig.add_trace(go.Scatter(
@@ -445,7 +409,7 @@ with col2:
                 "Estimated Profit: $%{customdata[0]:.2f}M<br>"
                 "Total Revenue: $%{customdata[1]:.2f}M"
                 "<extra></extra>"
-            )
+            ),
         ))
 
         if not below_benchmark.empty:
@@ -463,9 +427,10 @@ with col2:
                     "Estimated Profit: $%{customdata[0]:.2f}M<br>"
                     "Total Revenue: $%{customdata[1]:.2f}M"
                     "<extra></extra>"
-                )
+                ),
             ))
 
+        # Benchmark line restored
         fig.add_trace(go.Scatter(
             x=scenario.index,
             y=[benchmark_margin] * len(scenario.index),
@@ -473,7 +438,7 @@ with col2:
             mode="lines",
             yaxis="y2",
             line=dict(dash="dash", color="#87ceeb"),
-            hovertemplate="Benchmark Margin Target: %{y:.2f}%<extra></extra>"
+            hovertemplate="Benchmark Margin Target: %{y:.2f}%<extra></extra>",
         ))
 
         fig.update_layout(
@@ -485,16 +450,17 @@ with col2:
                 overlaying="y",
                 side="right",
                 range=[15, 30],
-                showgrid=False
+                showgrid=False,
             ),
             barmode="stack",
-            height=600
+            height=600,
         )
         apply_bensonwood_figure_style(fig)
         st.plotly_chart(fig, use_container_width=True)
 
     elif selected_chart == "Required Product Volume":
         required_fig = go.Figure()
+
         required_fig.add_trace(go.Bar(
             x=scenario.index,
             y=scenario["ProductRevenue"],
@@ -502,7 +468,7 @@ with col2:
             marker_color="#2f5a51",
             customdata=np.stack(
                 [scenario["RequiredProductRevenueAtBenchmark"], scenario["RequiredProductMixAtBenchmark"]],
-                axis=-1
+                axis=-1,
             ),
             hovertemplate=(
                 "Year %{x}<br>"
@@ -510,8 +476,9 @@ with col2:
                 "Required at Benchmark: $%{customdata[0]:.2f}M<br>"
                 "Required Product Mix: %{customdata[1]:.1f}%"
                 "<extra></extra>"
-            )
+            ),
         ))
+
         required_fig.add_trace(go.Scatter(
             x=scenario.index,
             y=scenario["RequiredProductRevenueAtBenchmark"],
@@ -525,19 +492,21 @@ with col2:
                 "Projected Product Revenue: $%{customdata[0]:.2f}M<br>"
                 "Projected Blended Margin: %{customdata[1]:.2f}%"
                 "<extra></extra>"
-            )
+            ),
         ))
+
         required_fig.update_layout(
             title="Required Product Volume to Maintain Benchmark Profit",
             xaxis_title="Year",
             yaxis_title="Product Revenue ($M)",
-            height=600
+            height=600,
         )
         apply_bensonwood_figure_style(required_fig)
         st.plotly_chart(required_fig, use_container_width=True)
 
     elif selected_chart == "Baseline vs Transition":
         comparison_fig = go.Figure()
+
         comparison_fig.add_trace(go.Scatter(
             x=scenario.index,
             y=baseline_scenario["CumulativeProfit"],
@@ -551,8 +520,9 @@ with col2:
                 "Baseline Annual Profit: $%{customdata[0]:.2f}M<br>"
                 "Baseline Margin: %{customdata[1]:.2f}%"
                 "<extra></extra>"
-            )
+            ),
         ))
+
         comparison_fig.add_trace(go.Scatter(
             x=scenario.index,
             y=scenario["CumulativeProfit"],
@@ -566,19 +536,21 @@ with col2:
                 "Transition Annual Profit: $%{customdata[0]:.2f}M<br>"
                 "Transition Margin: %{customdata[1]:.2f}%"
                 "<extra></extra>"
-            )
+            ),
         ))
+
         comparison_fig.update_layout(
             title="Baseline vs Transition Cumulative Profit Comparison",
             xaxis_title="Year",
             yaxis_title="Cumulative Profit ($M)",
-            height=600
+            height=600,
         )
         apply_bensonwood_figure_style(comparison_fig)
         st.plotly_chart(comparison_fig, use_container_width=True)
 
     else:
         crossover_fig = go.Figure()
+
         crossover_fig.add_trace(go.Scatter(
             x=scenario.index,
             y=scenario["CumulativeProfit"] - baseline_scenario["CumulativeProfit"],
@@ -592,14 +564,16 @@ with col2:
                 "Transition Cumulative: $%{customdata[0]:.2f}M<br>"
                 "Baseline Cumulative: $%{customdata[1]:.2f}M"
                 "<extra></extra>"
-            )
+            ),
         ))
+
         crossover_fig.add_hline(
             y=0,
             line_dash="dash",
             line_color="#7f9b90",
-            annotation_text="Break-even line"
+            annotation_text="Break-even line",
         )
+
         if crossover_year is not None:
             crossover_value = (
                 scenario.loc[crossover_year, "CumulativeProfit"]
@@ -615,7 +589,7 @@ with col2:
                 name="Crossover Year",
                 customdata=np.array([[
                     scenario.loc[crossover_year, "CumulativeProfit"],
-                    baseline_scenario.loc[crossover_year, "CumulativeProfit"]
+                    baseline_scenario.loc[crossover_year, "CumulativeProfit"],
                 ]]),
                 hovertemplate=(
                     "Year %{x}<br>"
@@ -623,27 +597,25 @@ with col2:
                     "Transition Cumulative: $%{customdata[0]:.2f}M<br>"
                     "Baseline Cumulative: $%{customdata[1]:.2f}M"
                     "<extra></extra>"
-                )
+                ),
             ))
 
         crossover_fig.update_layout(
             title="Cumulative Profit Curve with Crossover Year",
             xaxis_title="Year",
             yaxis_title="Cumulative Profit Difference vs Baseline ($M)",
-            height=600
+            height=600,
         )
         apply_bensonwood_figure_style(crossover_fig)
         st.plotly_chart(crossover_fig, use_container_width=True)
 
-# --- Scenario Insights (scrollable) ---
+# --- Scenario Insights (scrollable HTML component; stable) ---
 with col3:
     st.header("Scenario Insights")
 
-    # Build an HTML block so the scroll container actually wraps all content
-    years_list = ", ".join([f"Year {y}" for y in below_benchmark.index]) if not below_benchmark.empty else "None"
+    years_below = ", ".join([f"Year {y}" for y in below_benchmark.index]) if not below_benchmark.empty else "None"
     crossover_text = f"Year {crossover_year}" if crossover_year is not None else "Not within horizon"
 
-    # Simple takeaway label (compact)
     if below_benchmark.empty and (crossover_year is None or crossover_year <= max(3, years // 2)):
         takeaway = "Overall: disciplined transition under these assumptions."
     elif not below_benchmark.empty and crossover_year is not None:
@@ -654,26 +626,66 @@ with col3:
         takeaway = "Overall: mixed outcome—consider adjusting margins, growth, or timeline."
 
     insights_html = f"""
-    <div class="scenario-insights-scroll">
-        <p><strong>{takeaway}</strong></p>
-        <hr/>
+    <html>
+    <head>
+      <style>
+        body {{
+          margin: 0;
+          font-family: Montserrat, sans-serif;
+          color: #e7efec;
+          background: transparent;
+        }}
+        .wrap {{
+          max-height: 585px;
+          overflow-y: auto;
+          padding-right: 10px;
+        }}
+        .rule {{
+          border: 0;
+          border-top: 1px solid #2d4540;
+          margin: 12px 0;
+        }}
+        h3 {{
+          margin: 12px 0 6px 0;
+          font-size: 14px;
+          font-weight: 700;
+        }}
+        p, li {{
+          font-size: 13px;
+          line-height: 1.35;
+          margin: 6px 0;
+        }}
+        ul {{
+          margin: 6px 0 6px 18px;
+          padding: 0;
+        }}
+        .takeaway {{
+          font-weight: 700;
+          margin-top: 0;
+        }}
+      </style>
+    </head>
+    <body>
+      <div class="wrap">
+        <p class="takeaway">{takeaway}</p>
+        <hr class="rule"/>
 
         <h3>Assumptions (what you told the model)</h3>
         <ul>
-            <li><strong>Planning horizon:</strong> {years} years (how long the shift takes)</li>
-            <li><strong>Revenue growth:</strong> {annual_growth_rate}% per year (before mix effects)</li>
-            <li><strong>Revenue starts at:</strong> ${baseline_revenue:.1f}M and grows to <strong>${ending_revenue:.1f}M</strong></li>
-            <li><strong>Custom mix shifts:</strong> {base_custom_mix}% → <strong>{target_custom_mix}%</strong></li>
-            <li><strong>Margins assumed:</strong> Custom {custom_margin}% / Product {product_margin}%</li>
-            <li><strong>Benchmark margin:</strong> {benchmark_margin}% (your “do not dip below” target)</li>
+          <li><strong>Planning horizon:</strong> {years} years (how long the shift takes)</li>
+          <li><strong>Revenue growth:</strong> {annual_growth_rate}% per year</li>
+          <li><strong>Revenue path:</strong> ${baseline_revenue:.1f}M → <strong>${ending_revenue:.1f}M</strong></li>
+          <li><strong>Custom mix shift:</strong> {base_custom_mix}% → <strong>{target_custom_mix}%</strong></li>
+          <li><strong>Margins assumed:</strong> Custom {custom_margin}% / Product {product_margin}%</li>
+          <li><strong>Benchmark margin:</strong> {benchmark_margin}%</li>
         </ul>
 
-        <hr/>
+        <hr class="rule"/>
         <h3>Results (what the model projects)</h3>
         <ul>
-            <li><strong>Ending blended margin:</strong> {ending_margin:.1f}%</li>
-            <li><strong>Ending annual profit:</strong> ${ending_profit:.1f}M</li>
-            <li><strong>Profit vs baseline in final year:</strong> {ending_profit_delta:+.1f}M (transition minus baseline)</li>
+          <li><strong>Ending blended margin:</strong> {ending_margin:.1f}%</li>
+          <li><strong>Ending annual profit:</strong> ${ending_profit:.1f}M</li>
+          <li><strong>Final-year profit vs baseline:</strong> {ending_profit_delta:+.1f}M</li>
         </ul>
 
         <p><strong>Margin stability:</strong><br/>
@@ -681,30 +693,27 @@ with col3:
            Worst year for margin: <strong>Year {worst_year}</strong>
         </p>
 
-        <hr/>
+        <hr class="rule"/>
         <h3>Risk watch (where things get tight)</h3>
-        <p>
-            <strong>Years below benchmark:</strong> {years_list}<br/>
-            If this list is not “None”, those are the years you’d likely feel operational pressure
-            (pricing, cost, capacity, overhead absorption, or a need for more product volume).
-        </p>
+        <p><strong>Years below benchmark:</strong> {years_below}</p>
+        <p>If this is not “None”, those are the years you’d likely feel pressure (pricing, costs, capacity, or needing more product volume).</p>
 
-        <hr/>
+        <hr class="rule"/>
         <h3>Payback (does the strategy win over time?)</h3>
-        <p>
-            <strong>Crossover year:</strong> {crossover_text}<br/>
-            “Crossover” means total profit earned <em>to date</em> under the transition plan becomes greater than
-            total profit earned under staying at today’s mix.
-        </p>
+        <p><strong>Crossover year:</strong> {crossover_text}</p>
+        <p>Crossover means the transition’s total profit earned <em>to date</em> becomes greater than the baseline’s total profit earned.</p>
 
-        <hr/>
+        <hr class="rule"/>
         <h3>How to use this in a discussion</h3>
         <ul>
-            <li>If margin dips below benchmark, ask: <em>Is the mix change too fast, or are product margins too low?</em></li>
-            <li>If required product volume is high, ask: <em>Is the go-to-market plan realistic for that volume?</em></li>
-            <li>If payback is late or missing, ask: <em>Do we need a longer horizon, higher growth, or better margins?</em></li>
+          <li>If margin dips: is the mix change too fast, or are product margins too low?</li>
+          <li>If required product volume is high: is the go-to-market plan realistic for that volume?</li>
+          <li>If payback is late/missing: do we need a longer horizon, higher growth, or better margins?</li>
         </ul>
-    </div>
+      </div>
+    </body>
+    </html>
     """
 
-    st.markdown(insights_html, unsafe_allow_html=True)
+    # Use a true HTML component so scroll behavior is stable.
+    components.html(insights_html, height=585, scrolling=True)
