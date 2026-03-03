@@ -122,7 +122,10 @@ st.markdown("Model the revenue and profit implications of shifting from custom w
 # --- Sidebar ---
 # Use remote logo to avoid missing local file crashes (the issue in your logs)
 LOGO_URL = "https://bensonwood.com/wp-content/uploads/2021/10/bensonwood-logo-wht.svg"
-st.sidebar.image(LOGO_URL, use_container_width=True)
+st.sidebar.image(
+    "https://bensonwood.com/wp-content/uploads/2021/10/bensonwood-logo-wht.svg",
+    use_column_width=True,
+)
 
 st.sidebar.header("Scenario Inputs")
 
@@ -577,4 +580,5 @@ with col3:
         st.markdown(f"Cumulative profit crosses above baseline in Year {crossover_year}.")
     else:
         st.markdown("Transition scenario does not cross above baseline cumulative profit within the selected horizon.")
+
 
