@@ -1,6 +1,3 @@
-import os
-from io import BytesIO
-
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -11,123 +8,148 @@ import plotly.graph_objects as go
 # - Must appear only once in the entire app page
 st.set_page_config(page_title="Bensonwood Revenue Forecaster", layout="wide")
 
-# --- Theme + Branding ---
-st.markdown("""
-<style>
-@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap');
+# --- Theme + Branding (fixed: slider bars visible; label backgrounds removed) ---
+st.markdown(
+    """
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap');
 
-:root {
-    --bw-bg: #0f1716;
-    --bw-panel: #162321;
-    --bw-panel-2: #1d2f2b;
-    --bw-border: #2d4540;
-    --bw-text: #e7efec;
-    --bw-forest: #2f5a51;
-    --bw-wood: #b88152;
-}
+        :root {
+            --bw-bg: #0f1716;
+            --bw-panel: #162321;
+            --bw-panel-2: #1d2f2b;
+            --bw-border: #2d4540;
+            --bw-text: #e7efec;
+            --bw-muted-text: #b9cbc5;
+            --bw-forest: #2f5a51;
+            --bw-sage: #7f9b90;
+            --bw-wood: #b88152;
+        }
 
-/* Base App */
-html, body, .stApp {
-    font-family: 'Montserrat', sans-serif;
-    color: var(--bw-text) !important;
-    background: var(--bw-bg) !important;
-}
+        html, body, .stApp {
+            font-family: 'Montserrat', sans-serif;
+            color: var(--bw-text) !important;
+            background: var(--bw-bg) !important;
+        }
 
-/* Main container */
-.block-container {
-    background: var(--bw-panel);
-    border: 1px solid var(--bw-border);
-    border-radius: 12px;
-    padding: 1.25rem 1.5rem 1.75rem;
-}
+        .block-container {
+            background: var(--bw-panel);
+            border: 1px solid var(--bw-border);
+            border-radius: 12px;
+            padding: 1.25rem 1.5rem 1.75rem;
+        }
 
-/* Sidebar */
-section[data-testid="stSidebar"] {
-    background: var(--bw-panel-2);
-    border-right: 1px solid var(--bw-border);
-}
+        section[data-testid="stSidebar"] {
+            background: var(--bw-panel-2);
+            border-right: 1px solid var(--bw-border);
+        }
 
-/* Text */
-h1, h2, h3, h4, p, li, label, span, div {
-    color: var(--bw-text) !important;
-}
+        h1, h2, h3, h4, p, li, label, span, div {
+            color: var(--bw-text) !important;
+        }
 
-/* Tabs */
-[data-baseweb="tab"] {
-    background: transparent !important;
-    border: 1px solid var(--bw-border);
-    color: var(--bw-text) !important;
-    font-weight: 600;
-}
+        /* Tabs */
+        [data-baseweb="tab-list"] { gap: 0.3rem; }
 
-[aria-selected="true"][data-baseweb="tab"] {
-    background: var(--bw-forest) !important;
-    color: #ffffff !important;
-}
+        [data-baseweb="tab"] {
+            background-color: #223531;
+            border-radius: 0.4rem 0.4rem 0 0;
+            border: 1px solid var(--bw-border);
+            color: var(--bw-text) !important;
+            font-weight: 600;
+            padding: 0.6rem 0.9rem;
+        }
 
-/* ===== INPUT CLEANUP ===== */
+        [aria-selected="true"][data-baseweb="tab"] {
+            background-color: var(--bw-forest);
+            color: #ffffff !important;
+        }
 
-/* Number inputs */
-input[type="number"],
-input[type="text"] {
-    background: transparent !important;
-    color: #ffffff !important;
-    border: 1px solid var(--bw-border) !important;
-}
+        /* Alerts / notifications (keep your current panel look) */
+        .stAlert {
+            border-radius: 10px;
+            border: 1px solid var(--bw-border) !important;
+            background-color: #202a2c !important;
+        }
 
-/* Slider min/max labels */
-[data-baseweb="slider"] [data-testid="stTickBarMin"],
-[data-baseweb="slider"] [data-testid="stTickBarMax"] {
-    background: transparent !important;
-    color: #ffffff !important;
-}
+        [data-baseweb="notification"] {
+            border: 1px solid var(--bw-border) !important;
+            background-color: #202a2c !important;
+        }
 
-/* Slider text */
-[data-baseweb="slider"] span,
-[data-baseweb="slider"] div {
-    background: transparent !important;
-    color: #ffffff !important;
-}
+        [data-baseweb="notification"] * {
+            color: var(--bw-text) !important;
+        }
 
-/* Tooltip bubble */
-[data-baseweb="tooltip"],
-[role="tooltip"] {
-    background: transparent !important;
-    color: #ffffff !important;
-    border: none !important;
-    box-shadow: none !important;
-}
+        .stAlert [data-testid="stMarkdownContainer"] p {
+            color: var(--bw-text) !important;
+        }
 
-/* Slider handle */
-[data-baseweb="slider"] [role="slider"] {
-    background-color: #ffffff !important;
-    border-color: #ffffff !important;
-}
+        /* ===== INPUT CLEANUP (NO label backgrounds; KEEP slider bars visible) ===== */
 
-/* Remove alert backgrounds */
-.stAlert,
-[data-baseweb="notification"] {
-    background: transparent !important;
-    border: none !important;
-    box-shadow: none !important;
-}
+        /* Inputs (number/text) should not have filled backgrounds */
+        section[data-testid="stSidebar"] input[type="number"],
+        section[data-testid="stSidebar"] input[type="text"],
+        section[data-testid="stSidebar"] textarea {
+            background: transparent !important;
+            color: #ffffff !important;
+            border: 1px solid var(--bw-border) !important;
+            box-shadow: none !important;
+        }
 
-</style>
-""", unsafe_allow_html=True)
+        /* Remove any “chip/pill” style label backgrounds applied by baseweb typography */
+        section[data-testid="stSidebar"] [data-baseweb="typography"] {
+            background: transparent !important;
+        }
+
+        /* Slider: keep track and fill visible (do NOT blank all div/span) */
+        [data-baseweb="slider"] [data-baseweb="progress-bar"],
+        [data-baseweb="slider"] [role="progressbar"] {
+            background-color: rgba(231, 239, 236, 0.25) !important; /* track */
+        }
+
+        [data-baseweb="slider"] [data-baseweb="progress-bar"] > div,
+        [data-baseweb="slider"] [role="progressbar"] > div {
+            background-color: rgba(231, 239, 236, 0.65) !important; /* fill */
+        }
+
+        /* Slider thumb */
+        [data-baseweb="slider"] [role="slider"] {
+            background-color: #ffffff !important;
+            border-color: #ffffff !important;
+        }
+
+        /* Slider tick/min/max/value text: white with NO background boxes */
+        [data-baseweb="slider"] [data-testid="stTickBarMin"],
+        [data-baseweb="slider"] [data-testid="stTickBarMax"],
+        [data-baseweb="slider"] [data-testid="stTickBarMin"] *,
+        [data-baseweb="slider"] [data-testid="stTickBarMax"] *,
+        [data-baseweb="slider"] [data-baseweb="typography"] {
+            background: transparent !important;
+            color: #ffffff !important;
+        }
+
+        /* Tooltip bubble on drag (keep readable; not transparent) */
+        [data-baseweb="tooltip"],
+        [role="tooltip"] {
+            background-color: rgba(0, 0, 0, 0.65) !important;
+            color: #ffffff !important;
+            border: 1px solid rgba(45, 69, 64, 0.8) !important;
+            box-shadow: none !important;
+        }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
 
 st.title("Revenue & Product Mix Forecaster")
 st.markdown("Model the revenue and profit implications of shifting from custom work toward product-based work.")
 
 # --- Sidebar ---
 LOGO_URL = "https://bensonwood.com/wp-content/uploads/2021/10/bensonwood-logo-wht.svg"
-
-# Use the older-compatible parameter consistently (your error log shows this is needed)
 st.sidebar.image(LOGO_URL, use_column_width=True)
-
-# Add spacing below logo
 st.sidebar.markdown("<div style='margin-bottom:20px;'></div>", unsafe_allow_html=True)
 
-# Scenario Inputs section
 st.sidebar.header("Scenario Inputs")
 
 years = st.sidebar.slider(
@@ -177,7 +199,6 @@ benchmark_margin = st.sidebar.slider(
     15, 30, 21, 1,
     help="Target or minimum acceptable blended company profit margin."
 )
-
 
 # --- Projection Function ---
 def project_mix(years, revenue, growth, base_mix, target_mix, custom_margin, product_margin):
@@ -560,7 +581,7 @@ with col2:
         apply_bensonwood_figure_style(crossover_fig)
         st.plotly_chart(crossover_fig, use_container_width=True)
 
-# --- Executive Insights ---
+# --- Executive Insights (alerts moved here) ---
 with col3:
     st.header("Executive Insights")
     st.markdown(f"""
@@ -570,7 +591,6 @@ with col3:
     - Benchmark Margin: **{benchmark_margin}%**
     """)
 
-    # Alerts (kept as plain text; now correctly inside the Executive Insights column)
     if not below_benchmark.empty:
         years_list = ", ".join([f"Year {y}" for y in below_benchmark.index])
         st.markdown(f"**Margin below benchmark in:** {years_list}")
@@ -581,9 +601,3 @@ with col3:
         st.markdown(f"Cumulative profit crosses above baseline in Year {crossover_year}.")
     else:
         st.markdown("Transition scenario does not cross above baseline cumulative profit within the selected horizon.")
-
-
-
-
-
-
