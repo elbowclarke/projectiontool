@@ -12,31 +12,41 @@ st.markdown(
         @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap');
 
         :root {
-            --bw-deep-forest: #1f3a36;
+            --bw-bg: #0f1716;
+            --bw-panel: #162321;
+            --bw-panel-2: #1d2f2b;
+            --bw-border: #2d4540;
+            --bw-text: #e7efec;
+            --bw-muted-text: #b9cbc5;
             --bw-forest: #2f5a51;
             --bw-sage: #7f9b90;
             --bw-wood: #b88152;
-            --bw-cream: #f4f0ea;
-            --bw-text: #1e2a27;
         }
 
-        html, body, [class*="css"] {
+        html, body, [class*="css"], .stApp {
             font-family: 'Montserrat', sans-serif;
-            color: var(--bw-text);
+            color: var(--bw-text) !important;
+            background: var(--bw-bg) !important;
         }
 
-        .stApp {
-            background: linear-gradient(180deg, #fcfbf8 0%, var(--bw-cream) 100%);
+        .block-container {
+            background: var(--bw-panel);
+            border: 1px solid var(--bw-border);
+            border-radius: 12px;
+            padding: 1.25rem 1.5rem 1.75rem;
+        }
+
+        h1, h2, h3, h4, p, li, label, span, div {
+            color: var(--bw-text) !important;
         }
 
         h1, h2, h3 {
-            color: var(--bw-deep-forest) !important;
             letter-spacing: 0.2px;
         }
 
         section[data-testid="stSidebar"] {
-            background: #eef3f0;
-            border-right: 1px solid #d7e0dc;
+            background: var(--bw-panel-2);
+            border-right: 1px solid var(--bw-border);
         }
 
         section[data-testid="stSidebar"] h1,
@@ -46,7 +56,13 @@ st.markdown(
         section[data-testid="stSidebar"] p,
         section[data-testid="stSidebar"] span,
         section[data-testid="stSidebar"] div {
-            color: var(--bw-deep-forest) !important;
+            color: var(--bw-text) !important;
+        }
+
+        .stMarkdown p, .stMarkdown li, .stAlert, .stCaption,
+        .stRadio label, .stRadio div, .stSelectbox label, .stNumberInput label, .stSlider label,
+        [data-testid="stMetricLabel"], [data-testid="stMetricValue"], [data-testid="stMetricDelta"] {
+            color: var(--bw-text) !important;
         }
 
         [data-baseweb="tab-list"] {
@@ -54,16 +70,17 @@ st.markdown(
         }
 
         [data-baseweb="tab"] {
-            background-color: #dce6e1;
+            background-color: #223531;
             border-radius: 0.4rem 0.4rem 0 0;
-            color: var(--bw-deep-forest);
+            border: 1px solid var(--bw-border);
+            color: var(--bw-text) !important;
             font-weight: 600;
             padding: 0.6rem 0.9rem;
         }
 
         [aria-selected="true"][data-baseweb="tab"] {
             background-color: var(--bw-forest);
-            color: #ffffff;
+            color: #ffffff !important;
         }
 
         .stAlert {
@@ -153,13 +170,13 @@ def apply_bensonwood_figure_style(fig):
     fig.update_layout(
         template='plotly_white',
         paper_bgcolor='rgba(0,0,0,0)',
-        plot_bgcolor='#ffffff',
-        font=dict(family='Montserrat, sans-serif', color='#1e2a27'),
+        plot_bgcolor='#162321',
+        font=dict(family='Montserrat, sans-serif', color='#e7efec'),
         colorway=['#2f5a51', '#b88152', '#7f9b90', '#1f3a36'],
-        legend=dict(bgcolor='rgba(255,255,255,0.85)', bordercolor='#d7e0dc', borderwidth=1),
+        legend=dict(bgcolor='rgba(22,35,33,0.85)', bordercolor='#2d4540', borderwidth=1),
     )
-    fig.update_xaxes(gridcolor='#e6ece9', zerolinecolor='#d7e0dc')
-    fig.update_yaxes(gridcolor='#e6ece9', zerolinecolor='#d7e0dc')
+    fig.update_xaxes(gridcolor='#2d4540', zerolinecolor='#2d4540')
+    fig.update_yaxes(gridcolor='#2d4540', zerolinecolor='#2d4540')
 
 
 scenario = project_mix(
@@ -408,18 +425,18 @@ with col3:
         """
         **Revenue Mix & Margin**
         - Shows where total revenue comes from each year (custom vs product work).
-        - The line shows your blended margin, so leaders can quickly see when the business is getting more or less profitable.
-        - Red dots call out years where the margin drops below your benchmark.
+        - The line shows our blended margin, so we can quickly see when our business is becoming more or less profitable.
+        - Red dots call out years where the margin drops below our benchmark.
 
         **Required Product Volume to Maintain Benchmark Profit**
         - Compares projected product revenue against the product revenue needed to keep benchmark profit.
-        - If the required line sits above projected bars, leadership knows the plan needs either more product sales, better pricing, or lower costs.
+        - If the required line sits above projected bars, we know the plan needs either more product sales, better pricing, or lower costs.
         - This makes the profit target concrete by translating it into required product volume.
 
         **Baseline vs Transition Cumulative Comparison**
         - Compares total profit accumulated over time for two paths: staying at today's mix vs moving toward the target mix.
-        - This helps executives evaluate the full journey, not just one year at a time.
-        - A widening gap signals one strategy compounding faster than the other.
+        - This helps us evaluate the full journey, not just one year at a time.
+        - A widening gap signals one strategy compounding faster for us than the other.
 
         **Cumulative Profit Curve with Crossover Year**
         - Tracks the running profit advantage (or disadvantage) of the transition compared to baseline.
