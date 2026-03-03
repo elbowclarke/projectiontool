@@ -14,6 +14,8 @@ st.set_page_config(page_title="Bensonwood Revenue Forecaster", layout="wide")
 # --- Theme + Branding ---
 st.markdown(
     """
+st.markdown(
+    """
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap');
 
@@ -23,18 +25,18 @@ st.markdown(
             --bw-panel-2: #1d2f2b;
             --bw-border: #2d4540;
             --bw-text: #e7efec;
-            --bw-muted-text: #b9cbc5;
             --bw-forest: #2f5a51;
-            --bw-sage: #7f9b90;
             --bw-wood: #b88152;
         }
 
-        html, body, [class*="css"], .stApp {
+        /* Base App */
+        html, body, .stApp {
             font-family: 'Montserrat', sans-serif;
             color: var(--bw-text) !important;
             background: var(--bw-bg) !important;
         }
 
+        /* Main container */
         .block-container {
             background: var(--bw-panel);
             border: 1px solid var(--bw-border);
@@ -42,76 +44,81 @@ st.markdown(
             padding: 1.25rem 1.5rem 1.75rem;
         }
 
-        h1, h2, h3, h4, p, li, label, span, div {
-            color: var(--bw-text) !important;
-        }
-
-        h1, h2, h3 {
-            letter-spacing: 0.2px;
-        }
-
+        /* Sidebar */
         section[data-testid="stSidebar"] {
             background: var(--bw-panel-2);
             border-right: 1px solid var(--bw-border);
         }
 
-        section[data-testid="stSidebar"] h1,
-        section[data-testid="stSidebar"] h2,
-        section[data-testid="stSidebar"] h3,
-        section[data-testid="stSidebar"] label,
-        section[data-testid="stSidebar"] p,
-        section[data-testid="stSidebar"] span,
-        section[data-testid="stSidebar"] div {
+        /* Text everywhere */
+        h1, h2, h3, h4, p, li, label, span, div {
             color: var(--bw-text) !important;
         }
 
-        .stMarkdown p, .stMarkdown li, .stAlert, .stCaption,
-        .stRadio label, .stRadio div, .stSelectbox label, .stNumberInput label, .stSlider label,
-        [data-testid="stMetricLabel"], [data-testid="stMetricValue"], [data-testid="stMetricDelta"] {
-            color: var(--bw-text) !important;
-        }
-
-        [data-baseweb="tab-list"] { gap: 0.3rem; }
-
+        /* Tabs */
         [data-baseweb="tab"] {
-            background-color: #223531;
-            border-radius: 0.4rem 0.4rem 0 0;
+            background-color: transparent !important;
             border: 1px solid var(--bw-border);
             color: var(--bw-text) !important;
             font-weight: 600;
-            padding: 0.6rem 0.9rem;
         }
 
         [aria-selected="true"][data-baseweb="tab"] {
-            background-color: var(--bw-forest);
+            background-color: var(--bw-forest) !important;
             color: #ffffff !important;
         }
 
-        .stAlert {
-            border-radius: 10px;
+        /* ===== INPUT CLEANUP ===== */
+
+        /* Remove background from number inputs */
+        input[type="number"],
+        input[type="text"] {
+            background: transparent !important;
+            color: #ffffff !important;
             border: 1px solid var(--bw-border) !important;
-            background-color: #202a2c !important;
         }
 
-        [data-baseweb="notification"] {
-            border: 1px solid var(--bw-border) !important;
-            background-color: #202a2c !important;
+        /* Remove background from slider track labels (min/max numbers) */
+        [data-baseweb="slider"] [data-testid="stTickBarMin"],
+        [data-baseweb="slider"] [data-testid="stTickBarMax"] {
+            background: transparent !important;
+            color: #ffffff !important;
         }
 
-        [data-baseweb="notification"] * { color: var(--bw-text) !important; }
+        /* Remove background from slider number labels */
+        [data-baseweb="slider"] span,
+        [data-baseweb="slider"] div {
+            background: transparent !important;
+            color: #ffffff !important;
+        }
 
-        .stAlert [data-testid="stMarkdownContainer"] p { color: var(--bw-text) !important; }
+        /* Remove tooltip bubble background */
+        [data-baseweb="tooltip"],
+        [role="tooltip"] {
+            background: transparent !important;
+            color: #ffffff !important;
+            border: none !important;
+            box-shadow: none !important;
+        }
 
+        /* Slider handle */
         [data-baseweb="slider"] [role="slider"] {
             background-color: #ffffff !important;
             border-color: #ffffff !important;
         }
 
-        [data-baseweb="slider"] [data-testid="stTickBarMin"],
-        [data-baseweb="slider"] [data-testid="stTickBarMax"] {
-            background-color: #ffffff !important;
+        /* Remove notification / alert backgrounds */
+        .stAlert,
+        [data-baseweb="notification"] {
+            background: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
         }
+
     </style>
+    """,
+    unsafe_allow_html=True,
+)
     """,
     unsafe_allow_html=True,
 )
@@ -582,6 +589,7 @@ with col3:
         st.markdown(f"Cumulative profit crosses above baseline in Year {crossover_year}.")
     else:
         st.markdown("Transition scenario does not cross above baseline cumulative profit within the selected horizon.")
+
 
 
 
