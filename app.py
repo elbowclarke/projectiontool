@@ -571,13 +571,14 @@ with col3:
     - Benchmark Margin: **{benchmark_margin}%**
     """)
 
-    if not below_benchmark.empty:
-        years_list = ", ".join([f"Year {y}" for y in below_benchmark.index])
-        st.error(f"Margin falls below benchmark in: {years_list}")
-    else:
-        st.success("Margin remains at or above benchmark across all years.")
+if not below_benchmark.empty:
+    years_list = ", ".join([f"Year {y}" for y in below_benchmark.index])
+    st.markdown(f"**Margin below benchmark in:** {years_list}")
+else:
+    st.markdown("Margin remains at or above benchmark across all years.")
 
-    if crossover_year is not None:
-        st.info(f"Cumulative profit crosses above baseline in Year {crossover_year}.")
-    else:
-        st.warning("Transition scenario does not cross above baseline cumulative profit within the selected horizon.")
+if crossover_year is not None:
+    st.markdown(f"Cumulative profit crosses above baseline in Year {crossover_year}.")
+else:
+    st.markdown("Transition scenario does not cross above baseline cumulative profit within the selected horizon.")
+
