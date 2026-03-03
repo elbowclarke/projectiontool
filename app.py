@@ -12,116 +12,108 @@ import plotly.graph_objects as go
 st.set_page_config(page_title="Bensonwood Revenue Forecaster", layout="wide")
 
 # --- Theme + Branding ---
-st.markdown(
-    """
-st.markdown(
-    """
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap');
+st.markdown("""
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap');
 
-        :root {
-            --bw-bg: #0f1716;
-            --bw-panel: #162321;
-            --bw-panel-2: #1d2f2b;
-            --bw-border: #2d4540;
-            --bw-text: #e7efec;
-            --bw-forest: #2f5a51;
-            --bw-wood: #b88152;
-        }
+:root {
+    --bw-bg: #0f1716;
+    --bw-panel: #162321;
+    --bw-panel-2: #1d2f2b;
+    --bw-border: #2d4540;
+    --bw-text: #e7efec;
+    --bw-forest: #2f5a51;
+    --bw-wood: #b88152;
+}
 
-        /* Base App */
-        html, body, .stApp {
-            font-family: 'Montserrat', sans-serif;
-            color: var(--bw-text) !important;
-            background: var(--bw-bg) !important;
-        }
+/* Base App */
+html, body, .stApp {
+    font-family: 'Montserrat', sans-serif;
+    color: var(--bw-text) !important;
+    background: var(--bw-bg) !important;
+}
 
-        /* Main container */
-        .block-container {
-            background: var(--bw-panel);
-            border: 1px solid var(--bw-border);
-            border-radius: 12px;
-            padding: 1.25rem 1.5rem 1.75rem;
-        }
+/* Main container */
+.block-container {
+    background: var(--bw-panel);
+    border: 1px solid var(--bw-border);
+    border-radius: 12px;
+    padding: 1.25rem 1.5rem 1.75rem;
+}
 
-        /* Sidebar */
-        section[data-testid="stSidebar"] {
-            background: var(--bw-panel-2);
-            border-right: 1px solid var(--bw-border);
-        }
+/* Sidebar */
+section[data-testid="stSidebar"] {
+    background: var(--bw-panel-2);
+    border-right: 1px solid var(--bw-border);
+}
 
-        /* Text everywhere */
-        h1, h2, h3, h4, p, li, label, span, div {
-            color: var(--bw-text) !important;
-        }
+/* Text */
+h1, h2, h3, h4, p, li, label, span, div {
+    color: var(--bw-text) !important;
+}
 
-        /* Tabs */
-        [data-baseweb="tab"] {
-            background-color: transparent !important;
-            border: 1px solid var(--bw-border);
-            color: var(--bw-text) !important;
-            font-weight: 600;
-        }
+/* Tabs */
+[data-baseweb="tab"] {
+    background: transparent !important;
+    border: 1px solid var(--bw-border);
+    color: var(--bw-text) !important;
+    font-weight: 600;
+}
 
-        [aria-selected="true"][data-baseweb="tab"] {
-            background-color: var(--bw-forest) !important;
-            color: #ffffff !important;
-        }
+[aria-selected="true"][data-baseweb="tab"] {
+    background: var(--bw-forest) !important;
+    color: #ffffff !important;
+}
 
-        /* ===== INPUT CLEANUP ===== */
+/* ===== INPUT CLEANUP ===== */
 
-        /* Remove background from number inputs */
-        input[type="number"],
-        input[type="text"] {
-            background: transparent !important;
-            color: #ffffff !important;
-            border: 1px solid var(--bw-border) !important;
-        }
+/* Number inputs */
+input[type="number"],
+input[type="text"] {
+    background: transparent !important;
+    color: #ffffff !important;
+    border: 1px solid var(--bw-border) !important;
+}
 
-        /* Remove background from slider track labels (min/max numbers) */
-        [data-baseweb="slider"] [data-testid="stTickBarMin"],
-        [data-baseweb="slider"] [data-testid="stTickBarMax"] {
-            background: transparent !important;
-            color: #ffffff !important;
-        }
+/* Slider min/max labels */
+[data-baseweb="slider"] [data-testid="stTickBarMin"],
+[data-baseweb="slider"] [data-testid="stTickBarMax"] {
+    background: transparent !important;
+    color: #ffffff !important;
+}
 
-        /* Remove background from slider number labels */
-        [data-baseweb="slider"] span,
-        [data-baseweb="slider"] div {
-            background: transparent !important;
-            color: #ffffff !important;
-        }
+/* Slider text */
+[data-baseweb="slider"] span,
+[data-baseweb="slider"] div {
+    background: transparent !important;
+    color: #ffffff !important;
+}
 
-        /* Remove tooltip bubble background */
-        [data-baseweb="tooltip"],
-        [role="tooltip"] {
-            background: transparent !important;
-            color: #ffffff !important;
-            border: none !important;
-            box-shadow: none !important;
-        }
+/* Tooltip bubble */
+[data-baseweb="tooltip"],
+[role="tooltip"] {
+    background: transparent !important;
+    color: #ffffff !important;
+    border: none !important;
+    box-shadow: none !important;
+}
 
-        /* Slider handle */
-        [data-baseweb="slider"] [role="slider"] {
-            background-color: #ffffff !important;
-            border-color: #ffffff !important;
-        }
+/* Slider handle */
+[data-baseweb="slider"] [role="slider"] {
+    background-color: #ffffff !important;
+    border-color: #ffffff !important;
+}
 
-        /* Remove notification / alert backgrounds */
-        .stAlert,
-        [data-baseweb="notification"] {
-            background: transparent !important;
-            border: none !important;
-            box-shadow: none !important;
-        }
+/* Remove alert backgrounds */
+.stAlert,
+[data-baseweb="notification"] {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+}
 
-    </style>
-    """,
-    unsafe_allow_html=True,
-)
-    """,
-    unsafe_allow_html=True,
-)
+</style>
+""", unsafe_allow_html=True)
 
 st.title("Revenue & Product Mix Forecaster")
 st.markdown("Model the revenue and profit implications of shifting from custom work toward product-based work.")
@@ -589,6 +581,7 @@ with col3:
         st.markdown(f"Cumulative profit crosses above baseline in Year {crossover_year}.")
     else:
         st.markdown("Transition scenario does not cross above baseline cumulative profit within the selected horizon.")
+
 
 
 
