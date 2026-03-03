@@ -594,12 +594,82 @@ with col3:
     st.header("Scenario Insights")
 
     st.markdown(f"""
+### What This Scenario Assumes
+
 - **Planning Horizon:** {years} years  
-- **Revenue Path:** ${baseline_revenue:.1f}M → **${scenario['Revenue'].iloc[-1]:.1f}M**  
-- **Custom Mix Shift:** {base_custom_mix}% → **{target_custom_mix}%**  
-- **Benchmark Margin:** **{benchmark_margin}%**  
-- **Ending Profit Margin:** **{scenario['ProfitMargin'].iloc[-1]:.1f}%**  
-- **Ending Profit:** **${scenario['Profit'].iloc[-1]:.1f}M**  
+  This is how long the company has to shift its mix from today’s structure to the target structure.
+
+- **Revenue Path:** ${baseline_revenue:.1f}M → ${scenario['Revenue'].iloc[-1]:.1f}M  
+  If revenue grows at {annual_growth_rate}% annually, total revenue reaches this level by Year {years}.
+
+- **Custom Mix Shift:** {base_custom_mix}% → {target_custom_mix}%  
+  Over time, revenue becomes less dependent on custom work and more dependent on product-based work.
+""")
+
+    st.markdown("---")
+
+    st.markdown(f"""
+### What Happens to Profitability
+
+- **Benchmark Margin Target:** {benchmark_margin}%  
+  This is the minimum blended margin the company aims to maintain.
+
+- **Ending Profit Margin:** {scenario['ProfitMargin'].iloc[-1]:.1f}%  
+  This is where blended margin lands by the final year under this transition.
+
+- **Ending Annual Profit:** ${scenario['Profit'].iloc[-1]:.1f}M  
+  Profit in the final year assuming revenue and mix shift play out as modeled.
+""")
+
+    st.markdown(f"""
+- **Margin Range Across Period:**  
+  Lowest: {min_margin:.1f}%  
+  Average: {avg_margin:.1f}%  
+  Highest: {max_margin:.1f}%  
+
+  This shows how volatile (or stable) profitability is during the transition.
+""")
+
+    st.markdown("---")
+
+    if crossover_year is not None:
+        st.markdown(f"""
+### Strategic Payback
+
+- **Crossover Year:** Year {crossover_year}  
+  This is the first year the transition strategy produces *more cumulative profit* than staying at today's mix.
+  
+  After this point, the transition strategy is financially ahead overall.
+""")
+    else:
+        st.markdown("""
+### Strategic Payback
+
+- The transition strategy does not surpass the baseline cumulative profit within the selected planning horizon.
+  
+  This may indicate:
+  - The transition is too slow  
+  - Product margin is too low  
+  - Growth is insufficient  
+  - Or the horizon is too short
+""")
+
+    if not below_benchmark.empty:
+        years_list = ", ".join([f"Year {y}" for y in below_benchmark.index])
+        st.markdown(f"""
+### Risk Watch
+
+- **Margin falls below benchmark in:** {years_list}  
+
+  These years represent financial pressure points during the transition.
+""")
+    else:
+        st.markdown("""
+### Risk Watch
+
+- Blended margin remains at or above benchmark throughout the entire horizon.  
+
+  This indicates the transition is financially disciplined under current assumptions.
 """)
 
     # Additional helpful (compact) diagnostics
@@ -618,3 +688,4 @@ with col3:
         st.markdown(f"**Margin below benchmark in:** {years_list}")
     else:
         st.markdown("**Margin below benchmark in:** None")
+
