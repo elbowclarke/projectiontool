@@ -893,22 +893,21 @@ with col2:
         apply_bensonwood_figure_style(crossover_fig)
         st.plotly_chart(crossover_fig, use_container_width=True)
 
-    # --------------------------
-    # Preset button bar (below chart)
-    # --------------------------
-    st.markdown("#### Preset Scenarios")
+# --------------------------
+# Preset button bar (below chart) — FIXED
+# --------------------------
+st.markdown("#### Preset Scenarios")
 
-    preset_keys = list(PRESETS.keys())
-    cols = st.columns(len(preset_keys))
+preset_keys = list(PRESETS.keys())
+cols = st.columns(len(preset_keys))
 
-    clicked = None
-    for i, p in enumerate(preset_keys):
-        if cols[i].button(p, key=f"preset_btn_{i}"):
-            clicked = p
-
-    if clicked is not None:
-        apply_preset(clicked)
-        st.rerun()
+for i, p in enumerate(preset_keys):
+    cols[i].button(
+        p,
+        key=f"preset_btn_{i}",
+        on_click=apply_preset,
+        args=(p,),
+    )
 
 # --------------------------
 # Scenario Insights (scrollable, stable)
@@ -1049,3 +1048,4 @@ with col3:
     """
 
     components.html(insights_html, height=585, scrolling=True)
+
