@@ -85,12 +85,31 @@ st.markdown(
 
         .stAlert {
             border-radius: 10px;
-            border: 1px solid var(--bw-border);
-            background-color: #1a2a27 !important;
+            border: 1px solid var(--bw-border) !important;
+            background-color: #202a2c !important;
+        }
+
+        [data-baseweb="notification"] {
+            border: 1px solid var(--bw-border) !important;
+            background-color: #202a2c !important;
+        }
+
+        [data-baseweb="notification"] * {
+            color: var(--bw-text) !important;
         }
 
         .stAlert [data-testid="stMarkdownContainer"] p {
             color: var(--bw-text) !important;
+        }
+
+        [data-baseweb="slider"] [role="slider"] {
+            background-color: #ffffff !important;
+            border-color: #ffffff !important;
+        }
+
+        [data-baseweb="slider"] [data-testid="stTickBarMin"],
+        [data-baseweb="slider"] [data-testid="stTickBarMax"] {
+            background-color: #ffffff !important;
         }
     </style>
     """,
@@ -101,6 +120,10 @@ st.title("Revenue & Product Mix Forecaster")
 st.markdown("Model the revenue and profit implications of shifting from custom work toward product-based work.")
 
 # --- Sidebar ---
+st.sidebar.image(
+    "https://bensonwood.com/wp-content/uploads/2021/10/bensonwood-logo-wht.svg",
+    use_container_width=True,
+)
 st.sidebar.header("Scenario Inputs")
 
 years = st.sidebar.slider(
@@ -147,7 +170,7 @@ annual_growth_rate = st.sidebar.slider(
 
 benchmark_margin = st.sidebar.slider(
     "Benchmark Profit Margin %",
-    15, 30, 25, 1,
+    15, 30, 21, 1,
     help="Target or minimum acceptable blended company profit margin."
 )
 
@@ -287,9 +310,9 @@ chart_guides = {
 # --- Left Column ---
 with col1:
     st.markdown("### Scenario Summary")
-    st.write(f"Transition over {years} years.")
-    st.write(f"Revenue grows from ${baseline_revenue:.1f}M to ${scenario['Revenue'].iloc[-1]:.1f}M.")
-    st.write(f"Custom mix shifts from {base_custom_mix}% to {target_custom_mix}%.")
+    st.markdown(f"- Transition over {years} years.")
+    st.markdown(f"- Revenue grows from ${baseline_revenue:.1f}M to ${scenario['Revenue'].iloc[-1]:.1f}M.")
+    st.markdown(f"- Custom mix shifts from {base_custom_mix}% to {target_custom_mix}%.")
 
     st.markdown("### Chart Guide")
     st.markdown(chart_guides[selected_chart])
@@ -335,7 +358,7 @@ with col2:
             name='Profit Margin %',
             mode='lines+markers',
             yaxis='y2',
-            line=dict(width=3, color='#1f3a36'),
+            line=dict(width=3, color='#ffffff'),
             customdata=np.stack([scenario['Profit'], scenario['Revenue']], axis=-1),
             hovertemplate=(
                 'Year %{x}<br>'
@@ -370,7 +393,7 @@ with col2:
             name='Benchmark Margin',
             mode='lines',
             yaxis='y2',
-            line=dict(dash='dash', color='#7f9b90'),
+            line=dict(dash='dash', color='#87ceeb'),
             hovertemplate='Benchmark Margin Target: %{y:.2f}%<extra></extra>'
         ))
 
