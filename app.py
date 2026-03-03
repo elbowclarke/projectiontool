@@ -152,28 +152,18 @@ st.sidebar.markdown("<div style='margin-bottom:20px;'></div>", unsafe_allow_html
 
 st.sidebar.header("Scenario Inputs")
 
-years = st.sidebar.slider(
-    "Planning Horizon (Years)",
-    5, 15, 10, 1,
-    help="Select how many years the transition from custom-heavy to product-heavy mix should take."
-)
-
-base_custom_mix = st.sidebar.slider(
-    "Starting Custom Work %",
-    50, 80, 60, 1,
-    help="Percentage of revenue currently derived from custom project work."
-)
-
-target_custom_mix = st.sidebar.slider(
-    "Target Custom Work %",
-    40, 70, 50, 1,
-    help="Desired percentage of revenue from custom work at the end of the planning horizon."
-)
+# === Financial Baseline ===
 
 baseline_revenue = st.sidebar.number_input(
     "Current Annual Revenue ($M)",
     1.0, 100.0, 32.5, 0.1,
     help="Total company revenue in millions for the current year."
+)
+
+benchmark_margin = st.sidebar.slider(
+    "Benchmark Profit Margin %",
+    15, 30, 21, 1,
+    help="Target or minimum acceptable blended company profit margin."
 )
 
 custom_margin = st.sidebar.slider(
@@ -194,10 +184,27 @@ annual_growth_rate = st.sidebar.slider(
     help="Overall annual revenue growth assumption before mix effects."
 )
 
-benchmark_margin = st.sidebar.slider(
-    "Benchmark Profit Margin %",
-    15, 30, 21, 1,
-    help="Target or minimum acceptable blended company profit margin."
+st.sidebar.markdown("---")
+
+# === Transition Projection ===
+st.sidebar.subheader("Transition Projection")
+
+years = st.sidebar.slider(
+    "Planning Horizon (Years)",
+    5, 15, 10, 1,
+    help="Number of years over which the mix transition occurs."
+)
+
+base_custom_mix = st.sidebar.slider(
+    "Starting Custom Work %",
+    50, 80, 60, 1,
+    help="Current percentage of revenue derived from custom project work."
+)
+
+target_custom_mix = st.sidebar.slider(
+    "Target Custom Work %",
+    40, 70, 50, 1,
+    help="Desired percentage of revenue from custom work at the end of the planning horizon."
 )
 
 # --- Projection Function ---
@@ -601,3 +608,4 @@ with col3:
         st.markdown(f"Cumulative profit crosses above baseline in Year {crossover_year}.")
     else:
         st.markdown("Transition scenario does not cross above baseline cumulative profit within the selected horizon.")
+
