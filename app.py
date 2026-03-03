@@ -7,6 +7,133 @@ import plotly.graph_objects as go
 # IMPORTANT: Must be first Streamlit call and only once
 st.set_page_config(page_title="Bensonwood Revenue Forecast", layout="wide")
 
+# --------------------------
+# Preset Scenarios
+# --------------------------
+PRESETS = {
+    "Balanced Growth": dict(
+        years=10,
+        benchmark_op_margin=15,
+        tier3_revenue=21.8,
+        tier3_gm=25,
+        tier3_projects=20,
+        tier2_price=0.95,
+        tier2_gm=20,
+        tier2_projects0=15,
+        tier2_growth=12,
+        tier1_price=0.55,
+        tier1_gm=14,
+        tier1_projects0=25,
+        tier1_growth=15,
+        fixed_overhead=7.5,
+        voh_t3=40.0,
+        voh_t2=25.0,
+        voh_t1=20.0,
+    ),
+    "Premium Tilt (Tier 2-led)": dict(
+        years=10,
+        benchmark_op_margin=15,
+        tier3_revenue=21.8,
+        tier3_gm=25,
+        tier3_projects=20,
+        tier2_price=1.15,
+        tier2_gm=23,
+        tier2_projects0=18,
+        tier2_growth=18,
+        tier1_price=0.55,
+        tier1_gm=13,
+        tier1_projects0=15,
+        tier1_growth=8,
+        fixed_overhead=7.5,
+        voh_t3=40.0,
+        voh_t2=27.0,
+        voh_t1=20.0,
+    ),
+    "Tier 1 Blitz (Volume Risk)": dict(
+        years=10,
+        benchmark_op_margin=15,
+        tier3_revenue=21.8,
+        tier3_gm=25,
+        tier3_projects=20,
+        tier2_price=0.95,
+        tier2_gm=19,
+        tier2_projects0=10,
+        tier2_growth=8,
+        tier1_price=0.50,
+        tier1_gm=11,
+        tier1_projects0=35,
+        tier1_growth=28,
+        fixed_overhead=7.5,
+        voh_t3=40.0,
+        voh_t2=25.0,
+        voh_t1=22.0,
+    ),
+    "Efficiency First (Lower OH)": dict(
+        years=10,
+        benchmark_op_margin=15,
+        tier3_revenue=21.8,
+        tier3_gm=25,
+        tier3_projects=20,
+        tier2_price=0.95,
+        tier2_gm=21,
+        tier2_projects0=16,
+        tier2_growth=14,
+        tier1_price=0.55,
+        tier1_gm=14,
+        tier1_projects0=22,
+        tier1_growth=14,
+        fixed_overhead=6.5,
+        voh_t3=35.0,
+        voh_t2=20.0,
+        voh_t1=16.0,
+    ),
+    "Margin Rescue (Reprice/GM)": dict(
+        years=10,
+        benchmark_op_margin=16,
+        tier3_revenue=21.8,
+        tier3_gm=27,
+        tier3_projects=20,
+        tier2_price=1.05,
+        tier2_gm=25,
+        tier2_projects0=15,
+        tier2_growth=14,
+        tier1_price=0.60,
+        tier1_gm=17,
+        tier1_projects0=22,
+        tier1_growth=14,
+        fixed_overhead=7.5,
+        voh_t3=40.0,
+        voh_t2=25.0,
+        voh_t1=20.0,
+    ),
+    "Capacity-Constrained": dict(
+        years=10,
+        benchmark_op_margin=15,
+        tier3_revenue=21.8,
+        tier3_gm=25,
+        tier3_projects=20,
+        tier2_price=0.95,
+        tier2_gm=21,
+        tier2_projects0=16,
+        tier2_growth=12,
+        tier1_price=0.55,
+        tier1_gm=14,
+        tier1_projects0=18,
+        tier1_growth=8,
+        fixed_overhead=7.5,
+        voh_t3=40.0,
+        voh_t2=25.0,
+        voh_t1=20.0,
+    ),
+}
+
+
+def apply_preset(preset_key: str) -> None:
+    vals = PRESETS[preset_key]
+    for k, v in vals.items():
+        st.session_state[k] = v
+
+
 # --- Theme + Branding ---
 st.markdown(
     """
@@ -127,11 +254,31 @@ st.markdown(
             border: 1px solid rgba(45, 69, 64, 0.8) !important;
             box-shadow: none !important;
         }
+
+        /* Buttons (make them feel like scenario toggles) */
+        .stButton > button {
+            width: 100%;
+            border-radius: 10px;
+            border: 1px solid var(--bw-border);
+            background: #223531;
+            color: var(--bw-text);
+            font-weight: 600;
+            padding: 0.45rem 0.6rem;
+        }
+        .stButton > button:hover {
+            border-color: rgba(231,239,236,0.55);
+        }
     </style>
     """,
     unsafe_allow_html=True,
 )
 
+# --- Header: logo above title, left-biased ---
+LOGO_URL = "https://bensonwood.com/wp-content/uploads/2021/10/bensonwood-logo-wht.svg"
+st.markdown(
+    f"<img src='{LOGO_URL}' width='260' style='display:block; margin: 0 0 8px 0;'>",
+    unsafe_allow_html=True
+)
 
 st.title("Revenue & Product Mix Forecast")
 st.markdown("Model the revenue, profit, and overhead implications of holding Custom (Tier 3) steady while growing Tier 1 and Tier 2.")
@@ -144,12 +291,14 @@ st.sidebar.header("Scenario Inputs")
 years = st.sidebar.slider(
     "Planning Horizon (Years)",
     5, 15, 10, 1,
+    key="years",
     help="Number of years to model."
 )
 
 benchmark_op_margin = st.sidebar.slider(
     "Benchmark Operating Margin %",
     5, 25, 15, 1,
+    key="benchmark_op_margin",
     help="Target operating margin (after overhead). Used for the benchmark line and alerts."
 )
 
@@ -159,16 +308,19 @@ st.sidebar.subheader("Tier 3 (Custom) — Held Constant")
 tier3_revenue = st.sidebar.number_input(
     "Tier 3 Annual Revenue ($M)",
     1.0, 200.0, 21.8, 0.1,
+    key="tier3_revenue",
     help="Annual revenue from Custom / Tier 3 work. Held constant across the horizon."
 )
 tier3_gm = st.sidebar.slider(
     "Tier 3 Gross Margin %",
     10, 40, 25, 1,
+    key="tier3_gm",
     help="Gross margin on Tier 3 revenue (before overhead)."
 )
 tier3_projects = st.sidebar.number_input(
     "Tier 3 Projects (fixed)",
     1, 200, 20, 1,
+    key="tier3_projects",
     help="Tier 3 project count. Held constant (used for operational load + variable overhead)."
 )
 
@@ -178,21 +330,25 @@ st.sidebar.subheader("Tier 2 (Product — higher-touch)")
 tier2_price = st.sidebar.number_input(
     "Tier 2 Avg Revenue per Project ($M)",
     0.10, 10.00, 0.95, 0.05,
+    key="tier2_price",
     help="Average recognized revenue per Tier 2 project."
 )
 tier2_gm = st.sidebar.slider(
     "Tier 2 Gross Margin %",
     5, 35, 20, 1,
+    key="tier2_gm",
     help="Gross margin on Tier 2 revenue (before overhead)."
 )
 tier2_projects0 = st.sidebar.number_input(
     "Tier 2 Starting Projects (Year 1)",
     0, 500, 15, 1,
+    key="tier2_projects0",
     help="Tier 2 project volume in Year 1."
 )
 tier2_growth = st.sidebar.slider(
     "Tier 2 Project Growth % / Year",
     0, 40, 10, 1,
+    key="tier2_growth",
     help="Annual growth rate in Tier 2 projects."
 )
 
@@ -202,21 +358,25 @@ st.sidebar.subheader("Tier 1 (Product — most standardized)")
 tier1_price = st.sidebar.number_input(
     "Tier 1 Avg Revenue per Project ($M)",
     0.05, 10.00, 0.55, 0.05,
+    key="tier1_price",
     help="Average recognized revenue per Tier 1 project."
 )
 tier1_gm = st.sidebar.slider(
     "Tier 1 Gross Margin %",
     1, 30, 14, 1,
+    key="tier1_gm",
     help="Gross margin on Tier 1 revenue (before overhead)."
 )
 tier1_projects0 = st.sidebar.number_input(
     "Tier 1 Starting Projects (Year 1)",
     0, 500, 25, 1,
+    key="tier1_projects0",
     help="Tier 1 project volume in Year 1."
 )
 tier1_growth = st.sidebar.slider(
     "Tier 1 Project Growth % / Year",
     0, 60, 18, 1,
+    key="tier1_growth",
     help="Annual growth rate in Tier 1 projects."
 )
 
@@ -226,6 +386,7 @@ st.sidebar.subheader("Overhead Model")
 fixed_overhead = st.sidebar.number_input(
     "Fixed Overhead ($M / year)",
     0.0, 50.0, 7.5, 0.1,
+    key="fixed_overhead",
     help="Annual fixed overhead (G&A / leadership / facilities / support). Subtracted from gross profit."
 )
 
@@ -233,17 +394,20 @@ st.sidebar.markdown("**Variable Overhead (per project)**")
 voh_t3 = st.sidebar.number_input(
     "Tier 3 Variable OH ($k / project)",
     0.0, 500.0, 40.0, 5.0,
-    help="Overhead/cost burden per Tier 3 project (PM load, supervision, admin burden)."
+    key="voh_t3",
+    help="Overhead/cost burden per Tier 3 project."
 )
 voh_t2 = st.sidebar.number_input(
     "Tier 2 Variable OH ($k / project)",
     0.0, 500.0, 25.0, 5.0,
+    key="voh_t2",
     help="Overhead/cost burden per Tier 2 project."
 )
 voh_t1 = st.sidebar.number_input(
     "Tier 1 Variable OH ($k / project)",
     0.0, 500.0, 20.0, 5.0,
-    help="Overhead/cost burden per Tier 1 project. Even if smaller, volume can make it dominate."
+    key="voh_t1",
+    help="Overhead/cost burden per Tier 1 project."
 )
 
 # --------------------------
@@ -273,7 +437,6 @@ def project_portfolio(
     df["T3_Projects"] = int(t3_projects_fixed)
     df["T2_Projects"] = np.round(t2_projects_start * ((1 + t2_growth_pct / 100) ** (df.index - 1))).astype(int)
     df["T1_Projects"] = np.round(t1_projects_start * ((1 + t1_growth_pct / 100) ** (df.index - 1))).astype(int)
-
     df["TotalProjects"] = df["T1_Projects"] + df["T2_Projects"] + df["T3_Projects"]
 
     # Revenue
@@ -332,7 +495,7 @@ scenario = project_portfolio(
     voh_t1,
 )
 
-# Baseline: Tier 3 held constant, Tier 1 and Tier 2 stay flat at Year 1 projects (no growth)
+# Baseline: Tier 3 constant, Tier 1 and Tier 2 stay flat (no growth)
 baseline = project_portfolio(
     years,
     tier3_revenue,
@@ -341,11 +504,11 @@ baseline = project_portfolio(
     tier2_price,
     tier2_gm,
     tier2_projects0,
-    0,  # no growth
+    0,
     tier1_price,
     tier1_gm,
     tier1_projects0,
-    0,  # no growth
+    0,
     fixed_overhead,
     voh_t3,
     voh_t2,
@@ -355,20 +518,18 @@ baseline = project_portfolio(
 scenario["CumulativeOperatingProfit"] = scenario["OperatingProfit"].cumsum()
 baseline["CumulativeOperatingProfit"] = baseline["OperatingProfit"].cumsum()
 
-# Below-benchmark years
 below_benchmark = scenario[scenario["OperatingMargin"] < benchmark_op_margin]
-
-# Crossover year (transition vs baseline cumulative)
 crossover_candidates = scenario[scenario["CumulativeOperatingProfit"] >= baseline["CumulativeOperatingProfit"]]
 crossover_year = int(crossover_candidates.index[0]) if not crossover_candidates.empty else None
 
-# Required product revenue to hit benchmark (scale Tier 1+2 volumes together by factor k)
+scenario["ProductRevenue"] = scenario["T1_Revenue"] + scenario["T2_Revenue"]
+
+# Required product revenue to hit benchmark (scale Tier 1+2 together in-place)
 def required_scale_to_hit_benchmark(row, bm_pct):
     bm = bm_pct / 100.0
     A = float(row["T3_Revenue"])
     B = float(row["T3_GrossProfit"] - row["FixedOverhead"] - (row["T3_Projects"] * (voh_t3 / 1000.0)))
 
-    # Base product economics for that year (Tier1+Tier2 together)
     R = float(row["T1_Revenue"] + row["T2_Revenue"])
     GP = float(row["T1_GrossProfit"] + row["T2_GrossProfit"])
     VOH = float((row["T1_Projects"] * (voh_t1 / 1000.0)) + (row["T2_Projects"] * (voh_t2 / 1000.0)))
@@ -376,29 +537,20 @@ def required_scale_to_hit_benchmark(row, bm_pct):
     denom = (GP - VOH) - bm * R
     numer = bm * A - B
 
-    # If denom <= 0, scaling product does not improve benchmark math in a way that can reach target.
     if abs(denom) < 1e-9:
         return np.nan
-    k = numer / denom
 
-    # If k <= 1, current plan already meets (or exceeds) benchmark on required scaling basis.
-    # Return required product revenue (scaled) but don't go below current.
-    return max(0.0, k)  # allow >1 (needs more), <1 (already enough) becomes 0 for "extra needed"
+    k = numer / denom
+    return max(0.0, k)
 
 
 scenario["RequiredScaleK"] = scenario.apply(lambda r: required_scale_to_hit_benchmark(r, benchmark_op_margin), axis=1)
-
-# Required product revenue at benchmark (using scaling factor on Tier1+Tier2 revenues)
-scenario["ProductRevenue"] = scenario["T1_Revenue"] + scenario["T2_Revenue"]
 scenario["RequiredProductRevenueAtBenchmark"] = np.where(
     scenario["RequiredScaleK"].isna(),
     np.nan,
     scenario["ProductRevenue"] * scenario["RequiredScaleK"]
 )
-
-# Required additional product revenue beyond projected
-scenario["AdditionalProductRevenueNeeded"] = scenario["RequiredProductRevenueAtBenchmark"] - scenario["ProductRevenue"]
-scenario["AdditionalProductRevenueNeeded"] = scenario["AdditionalProductRevenueNeeded"].clip(lower=0)
+scenario["AdditionalProductRevenueNeeded"] = (scenario["RequiredProductRevenueAtBenchmark"] - scenario["ProductRevenue"]).clip(lower=0)
 
 # --------------------------
 # Plot styling helper
@@ -425,6 +577,7 @@ def apply_bensonwood_figure_style(fig):
     fig.update_xaxes(gridcolor="#2d4540", zerolinecolor="#2d4540")
     fig.update_yaxes(gridcolor="#2d4540", zerolinecolor="#2d4540")
 
+
 # --------------------------
 # Layout
 # --------------------------
@@ -440,54 +593,48 @@ selected_chart = col2.radio("Chart Tabs", chart_options, horizontal=True, label_
 
 chart_guides = {
     "Revenue Mix & Operating Margin": """
-### How to read this chart
+### How to read this chart (plain English)
 
 This answers: **“If Custom stays flat and Product grows, what happens to our revenue mix and operating margin?”**
 
-- The **stacked bars** show total revenue each year, split by **Tier 3 (Custom)**, **Tier 2**, and **Tier 1**.
-- The **white line** is **operating margin** (profit after overhead).
-- The **blue dashed line** is your **benchmark operating margin**.
-- **Red dots** indicate “pressure years” when operating margin falls below benchmark.
+- **Stacked bars**: total revenue split by Tier 3 (Custom), Tier 2, Tier 1.
+- **White line**: operating margin (after fixed + per-project overhead).
+- **Blue dashed line**: benchmark operating margin.
+- **Red dots**: years where operating margin falls below benchmark (“pressure years”).
 
-If you bias growth heavily toward Tier 1, you should see:
-- total revenue increasing,
-- project load rising,
-- and operating margin tightening (if Tier 1 has lower margin / higher overhead burden).
+Tier 1-heavy growth often raises total projects quickly and can tighten operating margin if Tier 1 has lower GM and/or meaningful per-project overhead.
 """,
     "Required Product Volume": """
-### How to read this chart
+### How to read this chart (plain English)
 
-This answers: **“How much Product revenue do we need to hit our benchmark operating margin?”**
+This answers: **“How much Tier 1 + Tier 2 revenue do we need to hit the benchmark operating margin?”**
 
-- The **bar** is projected combined **Tier 1 + Tier 2 product revenue**.
-- The **line** is the **product revenue required** to reach benchmark operating margin, given:
-  - Tier 3 revenue held constant,
-  - tier gross margins,
-  - fixed overhead,
-  - and variable overhead per project.
+- **Bars**: projected combined Tier 1 + Tier 2 product revenue.
+- **Line**: required product revenue to reach benchmark, given Tier 3 held constant and your overhead assumptions.
 
-If the required line sits above the bars, the model is effectively saying:
-**“To hit benchmark, we need either more product volume, better product gross margin, or lower overhead.”**
+If the required line sits above the bars, the levers are:
+higher product gross margin, lower overhead, higher Tier 2 share, or slower Tier 1 ramp.
 """,
     "Baseline vs Expansion": """
-### How to read this chart
+### How to read this chart (plain English)
 
-This answers: **“Are we better off growing Tier 1 & Tier 2, compared with keeping them flat?”**
+This answers: **“Does growing Tier 1 and Tier 2 actually add cumulative operating profit vs keeping them flat?”**
 
-- **Baseline** holds Tier 1 and Tier 2 project volumes flat at Year 1.
-- **Expansion** grows Tier 1 and Tier 2 by your chosen annual growth rates.
-- This chart shows **cumulative operating profit** (profit after overhead) over time.
+- Baseline keeps Tier 1 and Tier 2 project counts flat at Year 1.
+- Expansion grows them at the chosen rates.
+- Lines show cumulative operating profit (after overhead).
 
-If the lines barely separate, it means growth is adding workload but not much incremental operating profit.
+If the lines barely separate, you’re adding workload with limited incremental operating profit.
 """,
     "Cumulative Profit Crossover": """
-### How to read this chart
+### How to read this chart (plain English)
 
-This answers: **“When does the expansion strategy pay back?”**
+This answers: **“When do we ‘pay back’ versus doing nothing?”**
 
-- The line is: **(Expansion cumulative operating profit) − (Baseline cumulative operating profit)**.
-- Above zero means you’re ahead overall.
-- The marker shows the first year you pull ahead, if it happens.
+The plotted line is:
+**Expansion cumulative operating profit − Baseline cumulative operating profit**.
+
+Above zero means the growth strategy is ahead overall. The marker shows the first year it turns positive (if it does).
 """,
 }
 
@@ -495,11 +642,13 @@ with col1:
     st.markdown("### Chart Guide")
     st.markdown(chart_guides[selected_chart])
 
+# --------------------------
+# Center Chart
+# --------------------------
 with col2:
     if selected_chart == "Revenue Mix & Operating Margin":
         fig = go.Figure()
 
-        # Stacked revenue bars: Tier 3, Tier 2, Tier 1
         fig.add_trace(go.Bar(
             x=scenario.index,
             y=scenario["T3_Revenue"],
@@ -543,7 +692,6 @@ with col2:
             )
         ))
 
-        # Operating margin line
         fig.add_trace(go.Scatter(
             x=scenario.index,
             y=scenario["OperatingMargin"],
@@ -561,7 +709,6 @@ with col2:
             )
         ))
 
-        # Below-benchmark markers
         if not below_benchmark.empty:
             fig.add_trace(go.Scatter(
                 x=below_benchmark.index,
@@ -580,7 +727,6 @@ with col2:
                 )
             ))
 
-        # Benchmark line
         fig.add_trace(go.Scatter(
             x=scenario.index,
             y=[benchmark_op_margin] * len(scenario.index),
@@ -700,7 +846,6 @@ with col2:
 
     else:
         crossover_fig = go.Figure()
-
         diff = scenario["CumulativeOperatingProfit"] - baseline["CumulativeOperatingProfit"]
 
         crossover_fig.add_trace(go.Scatter(
@@ -736,11 +881,7 @@ with col2:
                 textposition="top center",
                 marker=dict(size=12, color="#b88152"),
                 name="Crossover Year",
-                hovertemplate=(
-                    "Year %{x}<br>"
-                    "Crossover Difference: $%{y:.2f}M"
-                    "<extra></extra>"
-                )
+                hovertemplate="Year %{x}<br>Crossover Difference: $%{y:.2f}M<extra></extra>"
             ))
 
         crossover_fig.update_layout(
@@ -751,6 +892,23 @@ with col2:
         )
         apply_bensonwood_figure_style(crossover_fig)
         st.plotly_chart(crossover_fig, use_container_width=True)
+
+    # --------------------------
+    # Preset button bar (below chart)
+    # --------------------------
+    st.markdown("#### Preset Scenarios")
+
+    preset_keys = list(PRESETS.keys())
+    cols = st.columns(len(preset_keys))
+
+    clicked = None
+    for i, p in enumerate(preset_keys):
+        if cols[i].button(p, key=f"preset_btn_{i}"):
+            clicked = p
+
+    if clicked is not None:
+        apply_preset(clicked)
+        st.rerun()
 
 # --------------------------
 # Scenario Insights (scrollable, stable)
@@ -764,7 +922,6 @@ with col3:
     end = scenario.iloc[-1]
     start = scenario.iloc[0]
 
-    # Key derived story items
     t3_start = float(start["T3_Share"])
     t3_end = float(end["T3_Share"])
 
@@ -780,11 +937,9 @@ with col3:
     ppp_start = float(start["ProfitPerProject_k"])
     ppp_end = float(end["ProfitPerProject_k"])
 
-    # Bias indicator (Tier1 share at end)
     t1_end = float(end["T1_Share"])
     bias_flag = "Tier 1 dominates the mix by the end." if t1_end >= 35 else "Tier 1 does not dominate the mix by the end."
 
-    # Takeaway heuristic
     if below_benchmark.empty and ppp_end >= ppp_start:
         takeaway = "Overall: growth adds volume without degrading profit efficiency (under these assumptions)."
     elif not below_benchmark.empty and ppp_end < ppp_start:
@@ -847,44 +1002,42 @@ with col3:
         <ul>
           <li><strong>Tier 3 (Custom)</strong> revenue is held constant at ${tier3_revenue:.1f}M and projects are fixed at {tier3_projects}.</li>
           <li><strong>Tier 1 and Tier 2</strong> grow via project counts; revenue is price × projects.</li>
-          <li><strong>Overhead</strong> is modeled as fixed overhead plus a per-project overhead load by tier.</li>
+          <li><strong>Overhead</strong> is fixed overhead plus a per-project overhead load by tier.</li>
         </ul>
 
         <hr class="rule"/>
         <h3>Did we move Custom from ~60% toward 50%?</h3>
         <p>
           <strong>Tier 3 share:</strong> {t3_start:.1f}% → <strong>{t3_end:.1f}%</strong><br/>
-          If this doesn't approach your target, it means Tier 1 + Tier 2 are not adding enough revenue, or Tier 3 is too large.
+          If this doesn't approach your target, Tier 1 + Tier 2 are not adding enough revenue, or Tier 3 is too large.
         </p>
 
         <hr class="rule"/>
-        <h3>Operational load (workload)</h3>
+        <h3>Operational load</h3>
         <p>
           <strong>Total projects:</strong> {proj_start} → <strong>{proj_end}</strong><br/>
-          When Tier 1 drives most of that increase, the organization feels it as scheduling, coordination, service load, and overhead drag.
+          When Tier 1 drives most of that increase, the organization feels it as coordination load and overhead drag.
         </p>
-
         <p>
           <strong>Overhead per project:</strong> {float(start["OverheadPerProject_k"]):.1f}k → <strong>{float(end["OverheadPerProject_k"]):.1f}k</strong>
         </p>
 
         <hr class="rule"/>
-        <h3>Profit quality (are we tightening profits?)</h3>
+        <h3>Profit quality</h3>
         <p>
           <strong>Operating margin:</strong> {opm_start:.1f}% → <strong>{opm_end:.1f}%</strong><br/>
           <strong>Operating profit:</strong> ${opp_start:.2f}M → <strong>${opp_end:.2f}M</strong>
         </p>
-
         <p>
           <strong>Profit per project:</strong> {ppp_start:.1f}k → <strong>{ppp_end:.1f}k</strong><br/>
-          This is often the clearest indicator of “more work for thinner returns.”
+          This is usually the clearest indicator of “more work for thinner returns.”
         </p>
 
         <hr class="rule"/>
         <h3>Benchmark risk</h3>
         <p><strong>Benchmark operating margin:</strong> {benchmark_op_margin}%</p>
         <p><strong>Years below benchmark:</strong> {years_below}</p>
-        <p class="muted">If below-benchmark years appear, the levers are: improve Tier 1/2 gross margin, reduce overhead burden, shift more growth to Tier 2, or slow Tier 1 expansion.</p>
+        <p class="muted">Levers: improve Tier 1/2 gross margin, reduce overhead burden, shift growth to Tier 2, or slow Tier 1 expansion.</p>
 
         <hr class="rule"/>
         <h3>Payback vs keeping Tier 1 & 2 flat</h3>
@@ -896,5 +1049,3 @@ with col3:
     """
 
     components.html(insights_html, height=585, scrolling=True)
-
-
