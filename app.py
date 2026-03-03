@@ -14,29 +14,43 @@ st.markdown(
         :root {
             --bw-deep-forest: #1f3a36;
             --bw-forest: #2f5a51;
-            --bw-sage: #7f9b90;
-            --bw-wood: #b88152;
-            --bw-cream: #f4f0ea;
-            --bw-text: #1e2a27;
+            --bw-sage: #5f7f74;
+            --bw-wood: #9a6437;
+            --bw-cream: #f5f2ec;
+            --bw-panel: #ffffff;
+            --bw-text: #10201d;
+            --bw-muted-text: #2f4540;
+            --bw-border: #cdd9d4;
         }
 
-        html, body, [class*="css"] {
+        html, body, .stApp {
             font-family: 'Montserrat', sans-serif;
             color: var(--bw-text);
         }
 
         .stApp {
-            background: linear-gradient(180deg, #fcfbf8 0%, var(--bw-cream) 100%);
+            background: var(--bw-cream);
+        }
+
+        .block-container {
+            background: var(--bw-panel);
+            border: 1px solid var(--bw-border);
+            border-radius: 12px;
+            padding: 1.25rem 1.5rem 1.75rem;
+        }
+
+        h1, h2, h3, h4, p, li, label, span, div {
+            color: var(--bw-text);
         }
 
         h1, h2, h3 {
-            color: var(--bw-deep-forest) !important;
+            color: var(--bw-text) !important;
             letter-spacing: 0.2px;
         }
 
         section[data-testid="stSidebar"] {
             background: #eef3f0;
-            border-right: 1px solid #d7e0dc;
+            border-right: 1px solid var(--bw-border);
         }
 
         section[data-testid="stSidebar"] h1,
@@ -46,7 +60,7 @@ st.markdown(
         section[data-testid="stSidebar"] p,
         section[data-testid="stSidebar"] span,
         section[data-testid="stSidebar"] div {
-            color: var(--bw-deep-forest) !important;
+            color: var(--bw-text) !important;
         }
 
         [data-baseweb="tab-list"] {
@@ -54,9 +68,10 @@ st.markdown(
         }
 
         [data-baseweb="tab"] {
-            background-color: #dce6e1;
+            background-color: #e5ece9;
             border-radius: 0.4rem 0.4rem 0 0;
-            color: var(--bw-deep-forest);
+            border: 1px solid var(--bw-border);
+            color: var(--bw-text);
             font-weight: 600;
             padding: 0.6rem 0.9rem;
         }
@@ -64,6 +79,20 @@ st.markdown(
         [aria-selected="true"][data-baseweb="tab"] {
             background-color: var(--bw-forest);
             color: #ffffff;
+        }
+
+
+        .stMarkdown p, .stMarkdown li, .stAlert, .stCaption, .st-emotion-cache-16idsys p,
+        .stRadio label, .stRadio div, .stSelectbox label, .stNumberInput label, .stSlider label {
+            color: var(--bw-text) !important;
+        }
+
+        [data-testid="stMetricLabel"], [data-testid="stMetricValue"], [data-testid="stMetricDelta"] {
+            color: var(--bw-text) !important;
+        }
+
+        [data-testid="stSliderTickBarMin"], [data-testid="stSliderTickBarMax"] {
+            color: var(--bw-muted-text) !important;
         }
 
         .stAlert {
@@ -74,14 +103,8 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-st.markdown(
-    """
-    <div style="text-align:left; margin-left: 8%; margin-bottom: 20px;">
-        <img src="https://bensonwood.com/wp-content/uploads/2021/10/bensonwood-logo.svg" width="375">
-    </div>
-    """,
-    unsafe_allow_html=True,
-)
+st.markdown('<div style="margin-bottom: 6px;"></div>', unsafe_allow_html=True)
+st.image("assets/bensonwood-logo.svg", width=520)
 
 st.title("Revenue & Product Mix Forecaster")
 st.markdown("Model the revenue and profit implications of shifting from custom work toward product-based work.")
@@ -228,14 +251,20 @@ with col1:
 
 # --- Center Chart ---
 with col2:
-    tab1, tab2, tab3, tab4 = st.tabs([
+    chart_options = [
         "Revenue Mix & Margin",
         "Required Product Volume",
         "Baseline vs Transition",
         "Cumulative Profit Crossover",
-    ])
+    ]
+    selected_chart = st.radio(
+        "Choose a chart",
+        chart_options,
+        horizontal=True,
+        label_visibility="collapsed",
+    )
 
-    with tab1:
+    if selected_chart == "Revenue Mix & Margin":
         fig = go.Figure()
 
         fig.add_trace(go.Bar(
@@ -302,7 +331,7 @@ with col2:
         apply_bensonwood_figure_style(fig)
         st.plotly_chart(fig, use_container_width=True)
 
-    with tab2:
+    elif selected_chart == "Required Product Volume":
         required_fig = go.Figure()
         required_fig.add_trace(go.Bar(
             x=scenario.index,
@@ -328,7 +357,7 @@ with col2:
         apply_bensonwood_figure_style(required_fig)
         st.plotly_chart(required_fig, use_container_width=True)
 
-    with tab3:
+    elif selected_chart == "Baseline vs Transition":
         comparison_fig = go.Figure()
         comparison_fig.add_trace(go.Scatter(
             x=scenario.index,
@@ -355,7 +384,7 @@ with col2:
         apply_bensonwood_figure_style(comparison_fig)
         st.plotly_chart(comparison_fig, use_container_width=True)
 
-    with tab4:
+    else:
         crossover_fig = go.Figure()
         crossover_fig.add_trace(go.Scatter(
             x=scenario.index,
@@ -412,30 +441,35 @@ with col3:
     else:
         st.success("Margin remains at or above benchmark across all years.")
 
-    st.markdown("### Chart Guide")
-    st.markdown(
-        """
+    chart_guides = {
+        "Revenue Mix & Margin": """
         **Revenue Mix & Margin**
-        - Shows where total revenue comes from each year (custom vs product work).
-        - The line shows your blended margin, so leaders can quickly see when the business is getting more or less profitable.
-        - Red dots call out years where the margin drops below your benchmark.
-
+        - This shows where our total revenue comes from each year (custom work vs product work).
+        - The line shows our blended margin so we can quickly see whether we are becoming more or less profitable.
+        - Red dots call out years where we drop below our benchmark margin.
+        """,
+        "Required Product Volume": """
         **Required Product Volume to Maintain Benchmark Profit**
-        - Compares projected product revenue against the product revenue needed to keep benchmark profit.
-        - If the required line sits above projected bars, leadership knows the plan needs either more product sales, better pricing, or lower costs.
-        - This makes the profit target concrete by translating it into required product volume.
-
+        - This compares our projected product revenue to the product revenue we need to hold our benchmark profit.
+        - If the required line is above the bars, we need more product sales, better pricing, or lower costs to stay on target.
+        - This turns our profit goal into a concrete volume target we can act on.
+        """,
+        "Baseline vs Transition": """
         **Baseline vs Transition Cumulative Comparison**
-        - Compares total profit accumulated over time for two paths: staying at today's mix vs moving toward the target mix.
-        - This helps executives evaluate the full journey, not just one year at a time.
-        - A widening gap signals one strategy compounding faster than the other.
-
+        - This compares total profit accumulated over time for two paths: staying at today's mix versus moving to our target mix.
+        - It helps us evaluate the whole transition journey, not just one year in isolation.
+        - A widening gap means one strategy is compounding faster for us over time.
+        """,
+        "Cumulative Profit Crossover": """
         **Cumulative Profit Curve with Crossover Year**
-        - Tracks the running profit advantage (or disadvantage) of the transition compared to baseline.
-        - The zero line is break-even: above it means transition has generated more total profit than baseline.
-        - The crossover marker shows when the transition strategy starts to pull ahead on a cumulative basis.
-        """
-    )
+        - This tracks our running profit advantage or disadvantage for transition vs baseline.
+        - The zero line is our break-even point; above it means the transition has delivered more total profit for us.
+        - The crossover marker shows when the transition strategy begins to pull ahead cumulatively.
+        """,
+    }
+
+    st.markdown("### Chart Guide")
+    st.markdown(chart_guides[selected_chart])
 
     if crossover_year is not None:
         st.info(f"Cumulative profit crosses above baseline in Year {crossover_year}.")
