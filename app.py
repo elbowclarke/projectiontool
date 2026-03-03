@@ -86,6 +86,21 @@ input[type="number"] {
     border: 1px solid var(--bw-border) !important;
 }
 
+/* Streamlit top header */
+header[data-testid="stHeader"] {
+    background-color: #1d2f2b !important;  /* match lighter green */
+}
+
+/* Remove shadow line under header */
+header[data-testid="stHeader"] > div {
+    box-shadow: none !important;
+}
+
+/* Add spacing below header */
+.block-container {
+    padding-top: 2rem !important;
+}
+
 </style>
 """, unsafe_allow_html=True)
 
@@ -210,3 +225,4 @@ with col3:
         st.markdown(f"**Margin below benchmark in:** {years_list}")
     else:
         st.markdown("Margin remains at or above benchmark.")
+
