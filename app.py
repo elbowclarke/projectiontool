@@ -184,7 +184,6 @@ annual_growth_rate = st.sidebar.slider(
     help="Overall annual revenue growth assumption before mix effects."
 )
 
-st.sidebar.markdown("---")
 st.sidebar.subheader("Transition Projection")
 
 years = st.sidebar.slider(
@@ -607,3 +606,4 @@ with col3:
         st.markdown(f"Cumulative profit crosses above baseline in Year {crossover_year}.")
     else:
         st.markdown("Transition scenario does not cross above baseline cumulative profit within the selected horizon.")
+
