@@ -132,12 +132,6 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# --- Header: logo above title, left-biased ---
-LOGO_URL = "https://bensonwood.com/wp-content/uploads/2021/10/bensonwood-logo-wht.svg"
-st.markdown(
-    f"<img src='{LOGO_URL}' width='260' style='display:block; margin: 0 0 8px 0;'>",
-    unsafe_allow_html=True
-)
 
 st.title("Revenue & Product Mix Forecast")
 st.markdown("Model the revenue, profit, and overhead implications of holding Custom (Tier 3) steady while growing Tier 1 and Tier 2.")
@@ -902,4 +896,5 @@ with col3:
     """
 
     components.html(insights_html, height=585, scrolling=True)
+
 
