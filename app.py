@@ -446,7 +446,7 @@ selected_chart = col2.radio("Chart Tabs", chart_options, horizontal=True, label_
 
 chart_guides = {
     "Revenue Mix & Operating Margin": """
-### How to read this chart (plain English)
+### How to read this chart
 
 This answers: **“If Custom stays flat and Product grows, what happens to our revenue mix and operating margin?”**
 
@@ -461,7 +461,7 @@ If you bias growth heavily toward Tier 1, you should see:
 - and operating margin tightening (if Tier 1 has lower margin / higher overhead burden).
 """,
     "Required Product Volume": """
-### How to read this chart (plain English)
+### How to read this chart
 
 This answers: **“How much Product revenue do we need to hit our benchmark operating margin?”**
 
@@ -476,7 +476,7 @@ If the required line sits above the bars, the model is effectively saying:
 **“To hit benchmark, we need either more product volume, better product gross margin, or lower overhead.”**
 """,
     "Baseline vs Expansion": """
-### How to read this chart (plain English)
+### How to read this chart
 
 This answers: **“Are we better off growing Tier 1 & Tier 2, compared with keeping them flat?”**
 
@@ -487,7 +487,7 @@ This answers: **“Are we better off growing Tier 1 & Tier 2, compared with keep
 If the lines barely separate, it means growth is adding workload but not much incremental operating profit.
 """,
     "Cumulative Profit Crossover": """
-### How to read this chart (plain English)
+### How to read this chart
 
 This answers: **“When does the expansion strategy pay back?”**
 
@@ -902,3 +902,4 @@ with col3:
     """
 
     components.html(insights_html, height=585, scrolling=True)
+
